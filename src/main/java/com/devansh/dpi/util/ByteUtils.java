@@ -40,4 +40,15 @@ public final class ByteUtils {
 
     }
 
+    public static String readIPv4(
+            byte[] data,
+            int offset){
+
+        return (data[offset] & 0xFF) + "." +
+                (data[offset+1] & 0xFF) + "." +
+                (data[offset+2] & 0xFF) + "." +
+                (data[offset+3] & 0xFF);
+
+    }
+
 }
