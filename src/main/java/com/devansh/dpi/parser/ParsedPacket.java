@@ -1,4 +1,10 @@
-package com.devansh.dpi.model;
+package com.devansh.dpi.parser;
+
+import com.devansh.dpi.enums.TransportProtocol;
+import com.devansh.dpi.model.EthernetFrame;
+import com.devansh.dpi.model.IPv4Packet;
+import com.devansh.dpi.model.RawPacket;
+import com.devansh.dpi.model.TCPPacket;
 
 import java.util.Arrays;
 
@@ -6,27 +12,17 @@ public class ParsedPacket {
 
     private final RawPacket rawPacket;
 
-    private final EthernetFrame ethernetFrame;
+    private EthernetFrame ethernetFrame;
 
-    private final IPv4Packet ipv4Packet;
+    private IPv4Packet ipv4Packet;
 
-    private final TCPPacket tcpPacket;
+    private TCPPacket tcpPacket;
 
-    public ParsedPacket(
-            RawPacket rawPacket,
-            EthernetFrame ethernetFrame,
-            IPv4Packet ipv4Packet,
-            TCPPacket tcpPacket) {
 
+    public ParsedPacket(RawPacket rawPacket) {
         this.rawPacket = rawPacket;
-        this.ethernetFrame = ethernetFrame;
-        this.ipv4Packet = ipv4Packet;
-        this.tcpPacket = tcpPacket;
     }
 
-    /*
-        Original Parsed Objects
-     */
 
     public RawPacket getRawPacket() {
         return rawPacket;
@@ -44,9 +40,23 @@ public class ParsedPacket {
         return tcpPacket;
     }
 
-    /*
-        Ethernet Convenience Methods
-     */
+
+    public void setEthernetFrame(EthernetFrame ethernetFrame) {
+        this.ethernetFrame = ethernetFrame;
+    }
+
+    public void setIpv4Packet(IPv4Packet ipv4Packet) {
+        this.ipv4Packet = ipv4Packet;
+    }
+
+    void setTcpPacket(TCPPacket tcpPacket) {
+        this.tcpPacket = tcpPacket;
+    }
+
+
+    public boolean hasEthernet() {
+        return ethernetFrame != null;
+    }
 
     public String getSourceMac() {
         return ethernetFrame.getSourceMac();
@@ -56,13 +66,10 @@ public class ParsedPacket {
         return ethernetFrame.getDestinationMac();
     }
 
-    public int getEtherType() {
-        return ethernetFrame.getEtherType();
-    }
 
-    /*
-        IPv4 Convenience Methods
-     */
+    public boolean hasIPv4() {
+        return ipv4Packet != null;
+    }
 
     public String getSourceIp() {
         return ipv4Packet.getSourceIp();
@@ -72,7 +79,7 @@ public class ParsedPacket {
         return ipv4Packet.getDestinationIp();
     }
 
-    public int getProtocol() {
+    public TransportProtocol getProtocol() {
         return ipv4Packet.getProtocol();
     }
 
@@ -80,9 +87,10 @@ public class ParsedPacket {
         return ipv4Packet.getTtl();
     }
 
-    /*
-        TCP Convenience Methods
-     */
+
+    public boolean hasTCP() {
+        return tcpPacket != null;
+    }
 
     public int getSourcePort() {
         return tcpPacket.getSourcePort();
@@ -100,41 +108,32 @@ public class ParsedPacket {
         return tcpPacket.getAcknowledgementNumber();
     }
 
-    public int getTcpHeaderLength() {
-        return tcpPacket.getHeaderLength();
-    }
-
     public int getPayloadOffset() {
         return tcpPacket.getPayloadOffset();
     }
 
-    /*
-        Protocol Helpers
-     */
 
     public boolean isTCP() {
-        return getProtocol() == 6;
+        return hasIPv4() &&
+                getProtocol() == TransportProtocol.TCP;
     }
 
     public boolean isUDP() {
-        return getProtocol() == 17;
+        return hasIPv4() &&
+                getProtocol() == TransportProtocol.UDP;
     }
-
-    public boolean isIPv4() {
-        return getEtherType() == 0x0800;
-    }
-
-    /*
-        Payload
-     */
 
     public byte[] getPayload() {
+
+        if (!hasTCP()) {
+            return new byte[0];
+        }
 
         byte[] data = rawPacket.getData();
 
         return Arrays.copyOfRange(
                 data,
-                getPayloadOffset(),
+                tcpPacket.getPayloadOffset(),
                 data.length
         );
     }

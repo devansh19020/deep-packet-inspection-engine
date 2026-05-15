@@ -1,6 +1,8 @@
 package com.devansh.dpi.model;
 
 
+import com.devansh.dpi.enums.TransportProtocol;
+
 public class IPv4Packet {
 
     private final int version;
@@ -9,7 +11,7 @@ public class IPv4Packet {
 
     private final int ttl;
 
-    private final int protocol;
+    private final TransportProtocol protocol;
 
     private final String sourceIp;
 
@@ -19,7 +21,7 @@ public class IPv4Packet {
             int version,
             int headerLength,
             int ttl,
-            int protocol,
+            TransportProtocol protocol,
             String sourceIp,
             String destinationIp) {
 
@@ -43,7 +45,7 @@ public class IPv4Packet {
         return ttl;
     }
 
-    public int getProtocol() {
+    public TransportProtocol getProtocol() {
         return protocol;
     }
 

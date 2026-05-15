@@ -1,5 +1,6 @@
 package com.devansh.dpi.parser;
 
+import com.devansh.dpi.enums.EtherType;
 import com.devansh.dpi.model.*;
 import com.devansh.dpi.util.ByteUtils;
 
@@ -17,19 +18,15 @@ public class EthernetParser {
         String sourceMac =
                 ByteUtils.readMac(data,6);
 
-        int etherType =
-                ByteUtils.readUnsignedShort(data,12);
+        EtherType etherType =
+                EtherType.fromValue(
+                        ByteUtils.readUnsignedShort(data, 12));
 
         return new EthernetFrame(
-
                 destinationMac,
-
                 sourceMac,
-
                 etherType
-
         );
-
     }
 
 }

@@ -1,6 +1,7 @@
 package com.devansh.dpi.parser;
 
 
+import com.devansh.dpi.enums.TransportProtocol;
 import com.devansh.dpi.model.*;
 import com.devansh.dpi.util.ByteUtils;
 
@@ -29,8 +30,9 @@ public class IPv4Parser {
         int ttl =
                 data[ipOffset+8] & 0xFF;
 
-        int protocol =
-                data[ipOffset+9] & 0xFF;
+        TransportProtocol protocol =
+                TransportProtocol.fromValue(
+                        data[ipOffset + 9] & 0xFF);
 
         String source =
                 ByteUtils.readIPv4(

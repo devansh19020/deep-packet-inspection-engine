@@ -1,18 +1,20 @@
 package com.devansh.dpi.model;
 
 
+import com.devansh.dpi.enums.EtherType;
+
 public class EthernetFrame {
 
     private final String destinationMac;
 
     private final String sourceMac;
 
-    private final int etherType;
+    private final EtherType etherType;
 
     public EthernetFrame(
             String destinationMac,
             String sourceMac,
-            int etherType) {
+            EtherType etherType) {
 
         this.destinationMac = destinationMac;
         this.sourceMac = sourceMac;
@@ -27,7 +29,7 @@ public class EthernetFrame {
         return sourceMac;
     }
 
-    public int getEtherType() {
+    public EtherType getEtherType() {
         return etherType;
     }
 
