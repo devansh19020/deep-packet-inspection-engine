@@ -1,9 +1,10 @@
 package com.devansh.dpi;
 
-import com.devansh.dpi.parser.ParsedPacket;
 import com.devansh.dpi.model.RawPacket;
 import com.devansh.dpi.parser.PacketParser;
+import com.devansh.dpi.parser.ParsedPacket;
 import com.devansh.dpi.reader.PcapReader;
+import com.devansh.dpi.tracker.FlowTracker;
 import com.devansh.dpi.util.PacketPrinter;
 
 public class Main {
@@ -13,6 +14,8 @@ public class Main {
         PacketParser parser = new PacketParser();
 
         PacketPrinter printer = new PacketPrinter();
+
+        FlowTracker flowTracker = new FlowTracker();
 
         try (PcapReader reader = new PcapReader()) {
 
@@ -25,9 +28,21 @@ public class Main {
                 ParsedPacket packet =
                         parser.parse(rawPacket);
 
-                printer.print(packet);
+                // Track the TCP flow this packet belongs to
+                flowTracker.process(packet);
 
+                // Print packet details
+                printer.print(packet);
             }
+
+            System.out.println();
+            System.out.println("==============================");
+            System.out.println("      FLOW ANALYSIS SUMMARY");
+            System.out.println("==============================");
+            System.out.println(
+                    "Total TCP Flows: " +
+                            flowTracker.getFlowCount()
+            );
 
         } catch (Exception e) {
 
@@ -36,5 +51,4 @@ public class Main {
         }
 
     }
-
 }

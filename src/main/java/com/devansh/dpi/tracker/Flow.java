@@ -5,11 +5,9 @@ public class Flow {
     private final FlowKey key;
 
     private long packetCount;
-
     private long totalBytes;
 
     private final long startTime;
-
     private long lastSeen;
 
     public Flow(
@@ -18,13 +16,9 @@ public class Flow {
             int packetLength) {
 
         this.key = key;
-
         this.packetCount = 1;
-
         this.totalBytes = packetLength;
-
         this.startTime = timestamp;
-
         this.lastSeen = timestamp;
     }
 
@@ -33,9 +27,7 @@ public class Flow {
             int packetLength) {
 
         packetCount++;
-
         totalBytes += packetLength;
-
         lastSeen = timestamp;
     }
 
@@ -59,4 +51,7 @@ public class Flow {
         return lastSeen;
     }
 
+    public long getDuration() {
+        return lastSeen - startTime;
+    }
 }

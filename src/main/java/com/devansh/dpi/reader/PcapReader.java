@@ -1,14 +1,15 @@
 package com.devansh.dpi.reader;
 
-import com.devansh.dpi.model.PcapGlobalHeader;
-import com.devansh.dpi.model.PcapPacketHeader;
-import com.devansh.dpi.model.RawPacket;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+
+import com.devansh.dpi.model.PcapGlobalHeader;
+import com.devansh.dpi.model.PcapPacketHeader;
+import com.devansh.dpi.model.RawPacket;
 
 public class PcapReader implements AutoCloseable {
 
@@ -22,23 +23,50 @@ public class PcapReader implements AutoCloseable {
 
     private PcapGlobalHeader globalHeader;
 
-    private final ByteBuffer packetHeaderBuffer = ByteBuffer.allocate(16);
+    private ByteOrder byteOrder;
+
+    private final ByteBuffer packetHeaderBuffer =
+            ByteBuffer.allocate(16);
 
     public void open(String fileName) throws IOException {
 
         channel = FileChannel.open(
                 Path.of(fileName),
-                StandardOpenOption.READ);
+                StandardOpenOption.READ
+        );
 
-        ByteBuffer globalHeaderBuffer = ByteBuffer.allocate(24);
+        ByteBuffer globalHeaderBuffer =
+                ByteBuffer.allocate(24);
 
         while (globalHeaderBuffer.hasRemaining()) {
+
             if (channel.read(globalHeaderBuffer) == -1) {
-                throw new IOException("Unexpected end of file while reading global header.");
+
+                throw new IOException(
+                        "Unexpected end of file while reading global header."
+                );
             }
         }
 
         globalHeaderBuffer.flip();
+
+        /*
+         * Read the first 4 bytes as raw bytes.
+         * We must determine byte order before reading
+         * the rest of the PCAP global header.
+         */
+        byte[] magicBytes = new byte[4];
+
+        globalHeaderBuffer.get(magicBytes);
+
+        byteOrder = determineByteOrder(magicBytes);
+
+        /*
+         * Rewind and read the complete global header
+         * using the detected byte order.
+         */
+        globalHeaderBuffer.rewind();
+        globalHeaderBuffer.order(byteOrder);
 
         globalHeader = new PcapGlobalHeader(
 
@@ -55,15 +83,17 @@ public class PcapReader implements AutoCloseable {
                 globalHeaderBuffer.getInt(),
 
                 globalHeaderBuffer.getInt()
-
         );
-
-        if (!isValidMagic(globalHeader.getMagicNumber())) {
-            throw new IOException("Invalid PCAP file. Unsupported magic number.");
-        }
     }
 
     public RawPacket readNextPacket() throws IOException {
+
+        if (channel == null) {
+
+            throw new IllegalStateException(
+                    "PCAP reader has not been opened."
+            );
+        }
 
         packetHeaderBuffer.clear();
 
@@ -76,10 +106,13 @@ public class PcapReader implements AutoCloseable {
             if (n == -1) {
 
                 if (bytesRead == 0) {
-                    return null;        // Normal EOF
+
+                    return null;
                 }
 
-                throw new IOException("Unexpected EOF while reading packet header.");
+                throw new IOException(
+                        "Unexpected EOF while reading packet header."
+                );
             }
 
             bytesRead += n;
@@ -87,11 +120,19 @@ public class PcapReader implements AutoCloseable {
 
         packetHeaderBuffer.flip();
 
-        long tsSec =
-                Integer.toUnsignedLong(packetHeaderBuffer.getInt());
+        // IMPORTANT: Packet headers use the same byte order
+        // as the global header.
+        packetHeaderBuffer.order(byteOrder);
 
-        long tsMicros =
-                Integer.toUnsignedLong(packetHeaderBuffer.getInt());
+        long tsSec =
+                Integer.toUnsignedLong(
+                        packetHeaderBuffer.getInt()
+                );
+
+        long tsFraction =
+                Integer.toUnsignedLong(
+                        packetHeaderBuffer.getInt()
+                );
 
         int capturedLength =
                 packetHeaderBuffer.getInt();
@@ -103,7 +144,9 @@ public class PcapReader implements AutoCloseable {
                 capturedLength > globalHeader.getSnapLen()) {
 
             throw new IOException(
-                    "Invalid packet length: " + capturedLength);
+                    "Invalid packet length: " +
+                            capturedLength
+            );
         }
 
         ByteBuffer packetBuffer =
@@ -114,7 +157,8 @@ public class PcapReader implements AutoCloseable {
             if (channel.read(packetBuffer) == -1) {
 
                 throw new IOException(
-                        "Unexpected EOF while reading packet data.");
+                        "Unexpected EOF while reading packet data."
+                );
             }
         }
 
@@ -128,7 +172,7 @@ public class PcapReader implements AutoCloseable {
         PcapPacketHeader packetHeader =
                 new PcapPacketHeader(
                         tsSec,
-                        tsMicros,
+                        tsFraction,
                         capturedLength,
                         originalLength
                 );
@@ -140,18 +184,36 @@ public class PcapReader implements AutoCloseable {
         return globalHeader;
     }
 
-    private boolean isValidMagic(int magic) {
+    private ByteOrder determineByteOrder(
+            byte[] magicBytes) throws IOException {
 
-        return magic == MAGIC_USEC_BE ||
-                magic == MAGIC_USEC_LE ||
-                magic == MAGIC_NSEC_BE ||
-                magic == MAGIC_NSEC_LE;
+        int magicBigEndian =
+                ByteBuffer.wrap(magicBytes)
+                        .order(ByteOrder.BIG_ENDIAN)
+                        .getInt();
+
+        if (magicBigEndian == MAGIC_USEC_BE ||
+                magicBigEndian == MAGIC_NSEC_BE) {
+
+            return ByteOrder.BIG_ENDIAN;
+        }
+
+        if (magicBigEndian == MAGIC_USEC_LE ||
+                magicBigEndian == MAGIC_NSEC_LE) {
+
+            return ByteOrder.LITTLE_ENDIAN;
+        }
+
+        throw new IOException(
+                "Invalid PCAP file. Unsupported magic number."
+        );
     }
 
     @Override
     public void close() throws IOException {
 
         if (channel != null && channel.isOpen()) {
+
             channel.close();
         }
     }
