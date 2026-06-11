@@ -4,8 +4,10 @@ import com.devansh.dpi.model.RawPacket;
 import com.devansh.dpi.parser.PacketParser;
 import com.devansh.dpi.parser.ParsedPacket;
 import com.devansh.dpi.reader.PcapReader;
+import com.devansh.dpi.statistics.TrafficStatistics;
 import com.devansh.dpi.tracker.FlowTracker;
 import com.devansh.dpi.util.PacketPrinter;
+import com.devansh.dpi.util.ReportPrinter;
 
 public class Main {
 
@@ -13,9 +15,17 @@ public class Main {
 
         PacketParser parser = new PacketParser();
 
-        PacketPrinter printer = new PacketPrinter();
+        PacketPrinter packetPrinter =
+                new PacketPrinter();
 
-        FlowTracker flowTracker = new FlowTracker();
+        FlowTracker flowTracker =
+                new FlowTracker();
+
+        TrafficStatistics statistics =
+                new TrafficStatistics();
+
+        ReportPrinter reportPrinter =
+                new ReportPrinter();
 
         try (PcapReader reader = new PcapReader()) {
 
@@ -28,27 +38,21 @@ public class Main {
                 ParsedPacket packet =
                         parser.parse(rawPacket);
 
-                // Track the TCP flow this packet belongs to
+                statistics.process(packet);
+
                 flowTracker.process(packet);
 
-                // Print packet details
-                printer.print(packet);
+                packetPrinter.print(packet);
             }
 
-            System.out.println();
-            System.out.println("==============================");
-            System.out.println("      FLOW ANALYSIS SUMMARY");
-            System.out.println("==============================");
-            System.out.println(
-                    "Total TCP Flows: " +
-                            flowTracker.getFlowCount()
+            reportPrinter.printReport(
+                    statistics,
+                    flowTracker
             );
 
         } catch (Exception e) {
 
             e.printStackTrace();
-
         }
-
     }
 }
