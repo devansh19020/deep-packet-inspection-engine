@@ -1,12 +1,12 @@
 package com.devansh.dpi.parser;
 
+import java.util.Arrays;
+
 import com.devansh.dpi.enums.TransportProtocol;
 import com.devansh.dpi.model.EthernetFrame;
 import com.devansh.dpi.model.IPv4Packet;
 import com.devansh.dpi.model.RawPacket;
 import com.devansh.dpi.model.TCPPacket;
-
-import java.util.Arrays;
 
 public class ParsedPacket {
 
@@ -123,7 +123,7 @@ public class ParsedPacket {
                 getProtocol() == TransportProtocol.UDP;
     }
 
-    public byte[] getPayload() {
+    public byte[] getTcpPayload() {
 
         if (!hasTCP()) {
             return new byte[0];
@@ -131,9 +131,18 @@ public class ParsedPacket {
 
         byte[] data = rawPacket.getData();
 
+        int payloadOffset =
+                tcpPacket.getPayloadOffset();
+
+        if (payloadOffset < 0 ||
+                payloadOffset > data.length) {
+
+            return new byte[0];
+        }
+
         return Arrays.copyOfRange(
                 data,
-                tcpPacket.getPayloadOffset(),
+                payloadOffset,
                 data.length
         );
     }
