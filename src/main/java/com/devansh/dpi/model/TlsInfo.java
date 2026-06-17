@@ -12,17 +12,23 @@ public class TlsInfo {
 
     private final int recordLength;
 
+    private final String serverName;
+
+
     public TlsInfo(
             TlsContentType contentType,
             int majorVersion,
             int minorVersion,
-            int recordLength) {
+            int recordLength,
+            String serverName) {
 
         this.contentType = contentType;
         this.majorVersion = majorVersion;
         this.minorVersion = minorVersion;
         this.recordLength = recordLength;
+        this.serverName = serverName;
     }
+
 
     public TlsContentType getContentType() {
         return contentType;
@@ -39,6 +45,16 @@ public class TlsInfo {
     public int getRecordLength() {
         return recordLength;
     }
+
+    public String getServerName() {
+        return serverName;
+    }
+
+    public boolean hasServerName() {
+        return serverName != null &&
+                !serverName.isBlank();
+    }
+
 
     public String getVersion() {
 

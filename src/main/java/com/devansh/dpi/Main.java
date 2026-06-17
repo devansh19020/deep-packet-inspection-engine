@@ -91,28 +91,34 @@ public class Main {
                 }
                 if (result.hasTls()) {
 
-                    System.out.println(
-                            "TLS INSPECTION"
-                    );
+                        System.out.println("TLS INSPECTION");
 
-                    System.out.println(
-                            "Content Type : " +
-                                    result.getTlsInfo().getContentType()
-                    );
+                        System.out.println(
+                                "Content Type : " +
+                                        result.getTlsInfo().getContentType()
+                        );
 
-                    System.out.println(
-                            "TLS Version  : " +
-                                    result.getTlsInfo().getVersion()
-                    );
+                        System.out.println(
+                                "TLS Version  : " +
+                                        result.getTlsInfo().getVersion()
+                        );
 
-                    System.out.println(
-                            "Record Length: " +
-                                    result.getTlsInfo().getRecordLength()
-                    );
+                        System.out.println(
+                                "Record Length: " +
+                                        result.getTlsInfo().getRecordLength()
+                        );
 
-                    System.out.println(
-                            "--------------------------------------"
-                    );
+                        if (result.getTlsInfo().hasServerName()) {
+
+                                System.out.println(
+                                        "SNI          : " +
+                                                result.getTlsInfo().getServerName()
+                                );
+                        }
+
+                        System.out.println(
+                                "--------------------------------------"
+                        );
                 }
             }
 
