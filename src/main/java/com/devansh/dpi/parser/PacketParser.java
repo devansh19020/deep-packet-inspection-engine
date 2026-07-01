@@ -2,19 +2,25 @@ package com.devansh.dpi.parser;
 
 import com.devansh.dpi.enums.EtherType;
 import com.devansh.dpi.enums.TransportProtocol;
-import com.devansh.dpi.model.*;
+import com.devansh.dpi.model.EthernetFrame;
+import com.devansh.dpi.model.IPv4Packet;
+import com.devansh.dpi.model.RawPacket;
+import com.devansh.dpi.model.TCPPacket;
+import com.devansh.dpi.model.UDPPacket;
 
 public class PacketParser {
 
     private final EthernetParser ethernetParser;
     private final IPv4Parser ipv4Parser;
     private final TCPParser tcpParser;
+    private final UDPParser udpParser;
 
     public PacketParser() {
 
         ethernetParser = new EthernetParser();
         ipv4Parser = new IPv4Parser();
         tcpParser = new TCPParser();
+        udpParser = new UDPParser();
 
     }
 
@@ -37,16 +43,22 @@ public class PacketParser {
 
         packet.setIpv4Packet(ipv4Packet);
 
-        if (ipv4Packet.getProtocol() != TransportProtocol.TCP) {
-            return packet;
+        if (ipv4Packet.getProtocol() == TransportProtocol.TCP) {
+
+            TCPPacket tcpPacket =
+                    tcpParser.parse(rawPacket, ipv4Packet);
+
+            packet.setTcpPacket(tcpPacket);
+
+        } else if (ipv4Packet.getProtocol() == TransportProtocol.UDP) {
+
+            UDPPacket udpPacket =
+                    udpParser.parse(rawPacket, ipv4Packet);
+
+            packet.setUdpPacket(udpPacket);
         }
 
-        TCPPacket tcpPacket =
-                tcpParser.parse(rawPacket, ipv4Packet);
-
-        packet.setTcpPacket(tcpPacket);
-
-        return packet;
+        return packet;        
     }
 
 }

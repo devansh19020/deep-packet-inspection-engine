@@ -7,6 +7,7 @@ import com.devansh.dpi.model.EthernetFrame;
 import com.devansh.dpi.model.IPv4Packet;
 import com.devansh.dpi.model.RawPacket;
 import com.devansh.dpi.model.TCPPacket;
+import com.devansh.dpi.model.UDPPacket;
 
 public class ParsedPacket {
 
@@ -18,6 +19,7 @@ public class ParsedPacket {
 
     private TCPPacket tcpPacket;
 
+    private UDPPacket udpPacket;
 
     public ParsedPacket(RawPacket rawPacket) {
         this.rawPacket = rawPacket;
@@ -40,6 +42,9 @@ public class ParsedPacket {
         return tcpPacket;
     }
 
+    public UDPPacket getUdpPacket() {
+        return udpPacket;
+    }
 
     public void setEthernetFrame(EthernetFrame ethernetFrame) {
         this.ethernetFrame = ethernetFrame;
@@ -53,6 +58,9 @@ public class ParsedPacket {
         this.tcpPacket = tcpPacket;
     }
 
+    void setUdpPacket(UDPPacket udpPacket) {
+        this.udpPacket = udpPacket;
+    }
 
     public boolean hasEthernet() {
         return ethernetFrame != null;
@@ -147,4 +155,45 @@ public class ParsedPacket {
         );
     }
 
+    public boolean hasUDP() {
+        return udpPacket != null;
+    }
+
+    public int getUdpSourcePort() {
+        return udpPacket.getSourcePort();
+    }
+
+    public int getUdpDestinationPort() {
+        return udpPacket.getDestinationPort();
+    }
+
+    public byte[] getUdpPayload() {
+
+        if (!hasUDP()) {
+            return new byte[0];
+        }
+
+        byte[] data = rawPacket.getData();
+
+        int offset = udpPacket.getPayloadOffset();
+
+        if (offset < 0 || offset > data.length) {
+            return new byte[0];
+        }
+
+        int declaredLength = udpPacket.getPayloadLength();
+
+        int availableLength = data.length - offset;
+
+        int payloadLength = Math.min(
+                declaredLength,
+                availableLength
+        );
+
+        return Arrays.copyOfRange(
+                data,
+                offset,
+                offset + payloadLength
+        );
+    }    
 }

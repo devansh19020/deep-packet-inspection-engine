@@ -51,6 +51,11 @@ public class ReportPrinter {
         );
 
         System.out.println(
+                "UDP Packets             : " +
+                        statistics.getUdpPackets()
+        );
+
+        System.out.println(
                 "Unsupported Packets     : " +
                         statistics.getUnsupportedPackets()
         );
