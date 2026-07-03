@@ -9,6 +9,7 @@ public class TrafficStatistics {
     private long tcpPackets;
     private long unsupportedPackets;
     private long totalCapturedBytes;
+    private long udpPackets;
 
     public void process(ParsedPacket packet) {
 
@@ -28,6 +29,10 @@ public class TrafficStatistics {
         if (packet.hasTCP()) {
             tcpPackets++;
         }
+
+        if (packet.hasUDP()) {
+            udpPackets++;
+        }
     }
 
     public long getTotalPackets() {
@@ -40,6 +45,10 @@ public class TrafficStatistics {
 
     public long getTcpPackets() {
         return tcpPackets;
+    }
+
+    public long getUdpPackets() {
+        return udpPackets;
     }
 
     public long getUnsupportedPackets() {

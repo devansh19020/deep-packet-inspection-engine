@@ -3,6 +3,7 @@ package com.devansh.dpi.inspection;
 import com.devansh.dpi.model.HttpInfo;
 import com.devansh.dpi.model.TlsInfo;
 import com.devansh.dpi.parser.ParsedPacket;
+import com.devansh.dpi.model.DNSInfo;
 
 public class InspectionResult {
 
@@ -12,14 +13,18 @@ public class InspectionResult {
 
     private final TlsInfo tlsInfo;
 
+    private final DNSInfo dnsInfo;
+
     public InspectionResult(
             ParsedPacket packet,
             HttpInfo httpInfo,
-            TlsInfo tlsInfo) {
+            TlsInfo tlsInfo,
+            DNSInfo dnsInfo) {
 
         this.packet = packet;
         this.httpInfo = httpInfo;
         this.tlsInfo = tlsInfo;
+        this.dnsInfo = dnsInfo;
     }
 
     public ParsedPacket getPacket() {
@@ -40,5 +45,13 @@ public class InspectionResult {
 
     public boolean hasTls() {
         return tlsInfo != null;
+    }
+
+    public DNSInfo getDnsInfo() {
+        return dnsInfo;
+    }
+
+    public boolean hasDns() {
+        return dnsInfo != null;
     }
 }

@@ -5,6 +5,7 @@ import java.util.Set;
 
 import com.devansh.dpi.inspection.InspectionResult;
 import com.devansh.dpi.inspection.PacketInspector;
+import com.devansh.dpi.model.DNSInfo;
 import com.devansh.dpi.model.RawPacket;
 import com.devansh.dpi.parser.PacketParser;
 import com.devansh.dpi.parser.ParsedPacket;
@@ -196,6 +197,33 @@ public class Main {
                     System.out.println(
                             "--------------------------------------"
                     );
+                }
+
+                if (result.hasDns()) {
+
+                DNSInfo dns = result.getDnsInfo();
+
+                System.out.println("DNS Inspection");
+                System.out.println("  Transaction ID : " +
+                        dns.getTransactionId());
+
+                System.out.println("  Message Type   : " +
+                        (dns.isResponse() ? "Response" : "Query"));
+
+                System.out.println("  Query Name     : " +
+                        dns.getQueryName());
+
+                System.out.println("  Record Type    : " +
+                        dns.getRecordType());
+
+                System.out.println("  Questions      : " +
+                        dns.getQuestionCount());
+
+                System.out.println("  Answers        : " +
+                        dns.getAnswerCount());
+
+                System.out.println("  Response Code  : " +
+                        dns.getResponseCode());
                 }
 
                 /*

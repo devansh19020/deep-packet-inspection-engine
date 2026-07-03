@@ -5,6 +5,8 @@ import com.devansh.dpi.application.TLSParser;
 import com.devansh.dpi.model.HttpInfo;
 import com.devansh.dpi.model.TlsInfo;
 import com.devansh.dpi.parser.ParsedPacket;
+import com.devansh.dpi.application.DNSParser;
+import com.devansh.dpi.model.DNSInfo;
 
 public class PacketInspector {
 
@@ -12,11 +14,15 @@ public class PacketInspector {
 
     private final TLSParser tlsParser;
 
+    private final DNSParser dnsParser;
+
     public PacketInspector() {
 
         this.httpParser = new HTTPParser();
 
         this.tlsParser = new TLSParser();
+
+        this.dnsParser = new DNSParser();
     }
 
     public InspectionResult inspect(
@@ -25,6 +31,8 @@ public class PacketInspector {
         HttpInfo httpInfo = null;
 
         TlsInfo tlsInfo = null;
+
+        DNSInfo dnsInfo = null; 
 
         if (packet.hasTCP()) {
 
@@ -41,10 +49,25 @@ public class PacketInspector {
             }
         }
 
+        if (packet.hasUDP()) {
+
+            int sourcePort = packet.getUdpSourcePort();
+            int destinationPort = packet.getUdpDestinationPort();
+
+            boolean isDnsPort =
+                    sourcePort == 53 || destinationPort == 53
+                    || sourcePort == 5353 || destinationPort == 5353;
+
+            if (isDnsPort) {
+                dnsInfo = dnsParser.parse(packet.getUdpPayload());
+            }
+        }
+
         return new InspectionResult(
                 packet,
                 httpInfo,
-                tlsInfo
+                tlsInfo,
+                dnsInfo
         );
     }
 }
