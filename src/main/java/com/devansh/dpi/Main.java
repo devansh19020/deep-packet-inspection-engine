@@ -1,7 +1,9 @@
 package com.devansh.dpi;
 
 import java.util.List;
-import java.util.Set;
+import java.util.HashSet;
+
+import java.io.IOException;
 
 import com.devansh.dpi.inspection.InspectionResult;
 import com.devansh.dpi.inspection.PacketInspector;
@@ -12,13 +14,15 @@ import com.devansh.dpi.parser.ParsedPacket;
 import com.devansh.dpi.reader.PcapReader;
 import com.devansh.dpi.rule.RuleEngine;
 import com.devansh.dpi.rule.SecurityAlert;
-import com.devansh.dpi.rule.SuspiciousDomainRule;
-import com.devansh.dpi.rule.SuspiciousHttpPathRule;
-import com.devansh.dpi.rule.SuspiciousPortRule;
 import com.devansh.dpi.statistics.TrafficStatistics;
 import com.devansh.dpi.tracker.FlowTracker;
 import com.devansh.dpi.util.PacketPrinter;
 import com.devansh.dpi.util.ReportPrinter;
+import com.devansh.dpi.config.DpiConfig;
+import com.devansh.dpi.config.RuleConfigLoader;
+import com.devansh.dpi.rule.SuspiciousDomainRule;
+import com.devansh.dpi.rule.SuspiciousPortRule;
+import com.devansh.dpi.rule.SuspiciousHttpPathRule;
 
 public class Main {
 
@@ -42,6 +46,11 @@ public class Main {
         ReportPrinter reportPrinter =
                 new ReportPrinter();
 
+        RuleConfigLoader configLoader =
+                new RuleConfigLoader();
+
+        DpiConfig config;
+
         /*
          * Create Rule Engine
          */
@@ -51,34 +60,41 @@ public class Main {
         /*
          * Register security rules
          */
+        try {
+        config = configLoader.load("rules.json");
+
+        } catch (IOException e) {
+                System.err.println(
+                        "Failed to load rules: " + e.getMessage()
+                );
+                return;
+        }
+
         ruleEngine.addRule(
                 new SuspiciousDomainRule(
-                        Set.of(
-                                "example.com",
-                                "malware-site.com",
-                                "suspicious-site.com"
-                        )
+                        new HashSet<>(config.getSuspiciousDomains())
                 )
         );
 
         ruleEngine.addRule(
                 new SuspiciousPortRule(
-                        Set.of(
-                                4444,
-                                31337
-                        )
+                        new HashSet<>(config.getSuspiciousPorts())
                 )
         );
 
         ruleEngine.addRule(
                 new SuspiciousHttpPathRule(
-                        Set.of(
-                                "/admin",
-                                "/login.php",
-                                "/wp-admin"
-                        )
+                        new HashSet<>(config.getSuspiciousHttpPaths())
                 )
         );
+
+        System.out.println("Security rules loaded successfully.");
+        System.out.println("Suspicious domains: " +
+                config.getSuspiciousDomains().size());
+        System.out.println("Suspicious ports: " +
+                config.getSuspiciousPorts().size());
+        System.out.println("Suspicious HTTP paths: " +
+                config.getSuspiciousHttpPaths().size());
 
         try (PcapReader reader = new PcapReader()) {
 

@@ -1,0 +1,16 @@
+{
+  "suspiciousDomains": [
+    "malware-site.com",
+    "suspicious-site.com",
+    "example.com"
+  ],
+  "suspiciousPorts": [
+    4444,
+    31337
+  ],
+  "suspiciousHttpPaths": [
+    "/admin",
+    "/login.php",
+    "/wp-admin"
+  ]
+}
