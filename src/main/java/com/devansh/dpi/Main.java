@@ -1,28 +1,31 @@
 package com.devansh.dpi;
 
-import java.util.List;
-import java.util.HashSet;
-
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.List;
 
+import com.devansh.dpi.config.DpiConfig;
+import com.devansh.dpi.config.RuleConfigLoader;
 import com.devansh.dpi.inspection.InspectionResult;
 import com.devansh.dpi.inspection.PacketInspector;
 import com.devansh.dpi.model.DNSInfo;
+import com.devansh.dpi.model.HttpInfo;
 import com.devansh.dpi.model.RawPacket;
+import com.devansh.dpi.model.TCPStreamData;
 import com.devansh.dpi.parser.PacketParser;
 import com.devansh.dpi.parser.ParsedPacket;
 import com.devansh.dpi.reader.PcapReader;
 import com.devansh.dpi.rule.RuleEngine;
 import com.devansh.dpi.rule.SecurityAlert;
+import com.devansh.dpi.rule.SuspiciousDomainRule;
+import com.devansh.dpi.rule.SuspiciousHttpPathRule;
+import com.devansh.dpi.rule.SuspiciousPortRule;
 import com.devansh.dpi.statistics.TrafficStatistics;
 import com.devansh.dpi.tracker.FlowTracker;
+import com.devansh.dpi.tracker.TCPApplicationBuffer;
+import com.devansh.dpi.tracker.TCPStreamReassembler;
 import com.devansh.dpi.util.PacketPrinter;
 import com.devansh.dpi.util.ReportPrinter;
-import com.devansh.dpi.config.DpiConfig;
-import com.devansh.dpi.config.RuleConfigLoader;
-import com.devansh.dpi.rule.SuspiciousDomainRule;
-import com.devansh.dpi.rule.SuspiciousPortRule;
-import com.devansh.dpi.rule.SuspiciousHttpPathRule;
 
 public class Main {
 
@@ -48,6 +51,12 @@ public class Main {
 
         RuleConfigLoader configLoader =
                 new RuleConfigLoader();
+
+        TCPStreamReassembler streamReassembler =
+                new TCPStreamReassembler();
+
+        TCPApplicationBuffer applicationBuffer =
+                new TCPApplicationBuffer();
 
         DpiConfig config;
 
@@ -118,6 +127,54 @@ public class Main {
                  */
                 InspectionResult result =
                         inspector.inspect(packet);
+
+                // Layer 2.5: TCP stream reassembly and stream-aware HTTP inspection
+
+                List<TCPStreamData> streamChunks =
+                        streamReassembler.process(packet);
+
+                for (TCPStreamData chunk : streamChunks) {
+
+                List<HttpInfo> streamRequests = applicationBuffer.process(chunk);
+
+                for (HttpInfo streamHttp : streamRequests) {
+                        System.out.println();
+                        System.out.println("=== REASSEMBLED HTTP INSPECTION ===");
+
+                        System.out.println("Method  : " + streamHttp.getMethod());
+                        System.out.println("Path    : " + streamHttp.getPath());
+                        System.out.println("Host    : " + streamHttp.getHost());
+                        System.out.println("Version : " + streamHttp.getVersion());
+
+                        System.out.println("Content Length: "
+                                + streamHttp.getContentLength());
+
+                        if (streamHttp.getBody() != null
+                                && !streamHttp.getBody().isEmpty()) {
+                        System.out.println("Body    : " + streamHttp.getBody());
+                        }
+
+                        InspectionResult streamResult =
+                                new InspectionResult(
+                                        packet,
+                                        streamHttp,
+                                        null,
+                                        null
+                                );
+
+                        List<SecurityAlert> streamAlerts =
+                                ruleEngine.evaluate(streamResult);
+
+                        for (SecurityAlert alert : streamAlerts) {
+                                System.out.println("!!! REASSEMBLY SECURITY ALERT !!!");
+                                System.out.println("Rule     : " + alert.getRuleName());
+                                System.out.println("Severity : " + alert.getSeverity());
+                                System.out.println("Message  : " + alert.getMessage());
+                        }
+
+                        System.out.println("--------------------------------------");
+                        }
+                }
 
                 /*
                  * Layer 3:

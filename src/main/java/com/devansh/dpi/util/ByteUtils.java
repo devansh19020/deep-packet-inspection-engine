@@ -65,4 +65,20 @@ public final class ByteUtils {
 
     }
 
+    public static boolean hasCompleteHttpHeader(byte[] payload) {
+        if (payload == null || payload.length < 4) {
+                return false;
+        }
+
+        for (int i = 0; i <= payload.length - 4; i++) {
+                if (payload[i] == '\r'
+                        && payload[i + 1] == '\n'
+                        && payload[i + 2] == '\r'
+                        && payload[i + 3] == '\n') {
+                return true;
+                }
+        }
+
+        return false;
+   }
 }
