@@ -21,6 +21,7 @@ import com.devansh.dpi.rule.SuspiciousDomainRule;
 import com.devansh.dpi.rule.SuspiciousHttpPathRule;
 import com.devansh.dpi.rule.SuspiciousPortRule;
 import com.devansh.dpi.statistics.TrafficStatistics;
+import com.devansh.dpi.tracker.FlowKey;
 import com.devansh.dpi.tracker.FlowTracker;
 import com.devansh.dpi.tracker.TCPApplicationBuffer;
 import com.devansh.dpi.tracker.TCPStreamReassembler;
@@ -107,7 +108,7 @@ public class Main {
 
         try (PcapReader reader = new PcapReader()) {
 
-            reader.open("captures/sample.pcap");
+            reader.open("captures/sample2.pcap");
 
             RawPacket rawPacket;
 
@@ -135,45 +136,49 @@ public class Main {
 
                 for (TCPStreamData chunk : streamChunks) {
 
-                List<HttpInfo> streamRequests = applicationBuffer.process(chunk);
+                        List<HttpInfo> streamRequests = applicationBuffer.process(chunk);
 
-                for (HttpInfo streamHttp : streamRequests) {
-                        System.out.println();
-                        System.out.println("=== REASSEMBLED HTTP INSPECTION ===");
+                        for (HttpInfo streamHttp : streamRequests) {
+                                System.out.println();
+                                System.out.println("=== REASSEMBLED HTTP INSPECTION ===");
 
-                        System.out.println("Method  : " + streamHttp.getMethod());
-                        System.out.println("Path    : " + streamHttp.getPath());
-                        System.out.println("Host    : " + streamHttp.getHost());
-                        System.out.println("Version : " + streamHttp.getVersion());
+                                System.out.println("Method  : " + streamHttp.getMethod());
+                                System.out.println("Path    : " + streamHttp.getPath());
+                                System.out.println("Host    : " + streamHttp.getHost());
+                                System.out.println("Version : " + streamHttp.getVersion());
 
-                        System.out.println("Content Length: "
-                                + streamHttp.getContentLength());
+                                System.out.println("Content Length: "
+                                        + streamHttp.getContentLength());
 
-                        if (streamHttp.getBody() != null
-                                && !streamHttp.getBody().isEmpty()) {
-                        System.out.println("Body    : " + streamHttp.getBody());
+                                if (streamHttp.getBody() != null
+                                        && !streamHttp.getBody().isEmpty()) {
+                                System.out.println("Body    : " + streamHttp.getBody());
+                                }
+
+                                InspectionResult streamResult =
+                                        new InspectionResult(
+                                                packet,
+                                                streamHttp,
+                                                null,
+                                                null
+                                        );
+
+                                List<SecurityAlert> streamAlerts =
+                                        ruleEngine.evaluate(streamResult);
+
+                                for (SecurityAlert alert : streamAlerts) {
+                                        System.out.println("!!! REASSEMBLY SECURITY ALERT !!!");
+                                        System.out.println("Rule     : " + alert.getRuleName());
+                                        System.out.println("Severity : " + alert.getSeverity());
+                                        System.out.println("Message  : " + alert.getMessage());
+                                }
+
+                                System.out.println("--------------------------------------");
                         }
+                }
 
-                        InspectionResult streamResult =
-                                new InspectionResult(
-                                        packet,
-                                        streamHttp,
-                                        null,
-                                        null
-                                );
-
-                        List<SecurityAlert> streamAlerts =
-                                ruleEngine.evaluate(streamResult);
-
-                        for (SecurityAlert alert : streamAlerts) {
-                                System.out.println("!!! REASSEMBLY SECURITY ALERT !!!");
-                                System.out.println("Rule     : " + alert.getRuleName());
-                                System.out.println("Severity : " + alert.getSeverity());
-                                System.out.println("Message  : " + alert.getMessage());
-                        }
-
-                        System.out.println("--------------------------------------");
-                        }
+                for (FlowKey closedFlow : streamReassembler.drainClosedFlows()) {
+                        applicationBuffer.removeFlow(closedFlow);
                 }
 
                 /*

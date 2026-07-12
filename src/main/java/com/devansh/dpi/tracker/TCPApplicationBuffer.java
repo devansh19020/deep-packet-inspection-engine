@@ -26,7 +26,7 @@ public class TCPApplicationBuffer {
     private final Map<StreamKey, BufferState> buffers =
             new HashMap<>();
 
-    public List<HttpInfo> process(TCPStreamData chunk) {
+    public synchronized List<HttpInfo> process(TCPStreamData chunk) {
         List<HttpInfo> completedMessages = new ArrayList<>();
 
         long now = System.currentTimeMillis();
@@ -241,4 +241,12 @@ public class TCPApplicationBuffer {
             return Objects.hash(flowKey, forwardDirection);
         }
     }
+
+
+    public synchronized void removeFlow(FlowKey flowKey) {
+        buffers.keySet().removeIf(
+                key -> key.flowKey.equals(flowKey)
+        );
+    }
+
 }
