@@ -1,0 +1,441 @@
+DPI ENGINE RUN REPORT
+=====================
+
+Security rules loaded successfully.
+Suspicious domains: 2
+Suspicious ports: 2
+Suspicious HTTP paths: 3
+--------------------------------------
+Source MAC      : 02:00:00:00:00:11
+Destination MAC : 02:00:00:00:00:22
+Source IP       : 192.168.1.10
+Destination IP  : 93.184.216.34
+Protocol        : TCP
+Transport       : TCP
+Source Port     : 51514
+Destination Port: 80
+Sequence Number : 1000
+--------------------------------------
+--------------------------------------
+Source MAC      : 02:00:00:00:00:11
+Destination MAC : 02:00:00:00:00:22
+Source IP       : 192.168.1.10
+Destination IP  : 93.184.216.34
+Protocol        : TCP
+Transport       : TCP
+Source Port     : 51514
+Destination Port: 80
+Sequence Number : 1001
+--------------------------------------
+
+=== REASSEMBLED HTTP INSPECTION ===
+Type    : REQUEST
+Method  : GET
+Path    : /admin
+Host    : example.com
+Version : HTTP/1.1
+Content Length: 0
+--------------------------------------
+!!! REASSEMBLY SECURITY ALERT !!!
+Rule     : Suspicious HTTP Path Rule
+Severity : MEDIUM
+Message  : Suspicious HTTP path detected: /admin
+--------------------------------------
+--------------------------------------
+
+=== REASSEMBLED HTTP INSPECTION ===
+Type    : REQUEST
+Method  : GET
+Path    : /health
+Host    : safe.example.net
+Version : HTTP/1.1
+Content Length: 0
+--------------------------------------
+--------------------------------------
+--------------------------------------
+Source MAC      : 02:00:00:00:00:11
+Destination MAC : 02:00:00:00:00:22
+Source IP       : 192.168.1.10
+Destination IP  : 93.184.216.34
+Protocol        : TCP
+Transport       : TCP
+Source Port     : 51514
+Destination Port: 80
+Sequence Number : 1026
+--------------------------------------
+
+=== REASSEMBLED HTTP INSPECTION ===
+Type    : REQUEST
+Method  : GET
+Path    : /
+Host    : example.com
+Version : HTTP/1.1
+Content Length: 0
+--------------------------------------
+--------------------------------------
+--------------------------------------
+Source MAC      : 02:00:00:00:00:11
+Destination MAC : 02:00:00:00:00:22
+Source IP       : 192.168.1.10
+Destination IP  : 93.184.216.34
+Protocol        : TCP
+Transport       : TCP
+Source Port     : 51514
+Destination Port: 80
+Sequence Number : 1141
+--------------------------------------
+HTTP INSPECTION
+Type    : REQUEST
+Method  : GET
+Path    : /
+Host    : example.com
+Status  : null
+--------------------------------------
+--------------------------------------
+Source MAC      : 02:00:00:00:00:11
+Destination MAC : 02:00:00:00:00:22
+Source IP       : 192.168.1.20
+Destination IP  : 93.184.216.34
+Protocol        : TCP
+Transport       : TCP
+Source Port     : 51516
+Destination Port: 80
+Sequence Number : 12000
+--------------------------------------
+--------------------------------------
+Source MAC      : 02:00:00:00:00:11
+Destination MAC : 02:00:00:00:00:22
+Source IP       : 192.168.1.20
+Destination IP  : 93.184.216.34
+Protocol        : TCP
+Transport       : TCP
+Source Port     : 51516
+Destination Port: 80
+Sequence Number : 12001
+--------------------------------------
+
+=== REASSEMBLED HTTP INSPECTION ===
+Type    : REQUEST
+Method  : POST
+Path    : /login
+Host    : example.com
+Version : HTTP/1.1
+Content Length: 40
+Body    : {"username":"admin","password":"secret"}
+--------------------------------------
+--------------------------------------
+--------------------------------------
+Source MAC      : 02:00:00:00:00:11
+Destination MAC : 02:00:00:00:00:22
+Source IP       : 192.168.1.20
+Destination IP  : 93.184.216.34
+Protocol        : TCP
+Transport       : TCP
+Source Port     : 51516
+Destination Port: 80
+Sequence Number : 12107
+--------------------------------------
+--------------------------------------
+Source MAC      : 02:00:00:00:00:11
+Destination MAC : 02:00:00:00:00:22
+Source IP       : 192.168.1.30
+Destination IP  : 198.51.100.20
+Protocol        : TCP
+Transport       : TCP
+Source Port     : 53000
+Destination Port: 4444
+Sequence Number : 3000
+--------------------------------------
+!!! SECURITY ALERT !!!
+Rule     : Suspicious Port Rule
+Severity : MEDIUM
+Message  : Connection detected to suspicious port: 4444
+--------------------------------------
+--------------------------------------
+Source MAC      : 02:00:00:00:00:11
+Destination MAC : 02:00:00:00:00:22
+Source IP       : 192.168.1.30
+Destination IP  : 198.51.100.20
+Protocol        : TCP
+Transport       : TCP
+Source Port     : 53000
+Destination Port: 4444
+Sequence Number : 3001
+--------------------------------------
+!!! SECURITY ALERT !!!
+Rule     : Suspicious Port Rule
+Severity : MEDIUM
+Message  : Connection detected to suspicious port: 4444
+--------------------------------------
+--------------------------------------
+Source MAC      : 02:00:00:00:00:11
+Destination MAC : 02:00:00:00:00:22
+Source IP       : 192.168.1.40
+Destination IP  : 198.51.100.30
+Protocol        : TCP
+Transport       : TCP
+Source Port     : 54000
+Destination Port: 23
+Sequence Number : 9000
+--------------------------------------
+--------------------------------------
+Source MAC      : 02:00:00:00:00:11
+Destination MAC : 02:00:00:00:00:22
+Source IP       : 192.168.1.40
+Destination IP  : 198.51.100.30
+Protocol        : TCP
+Transport       : TCP
+Source Port     : 54000
+Destination Port: 23
+Sequence Number : 9001
+--------------------------------------
+--------------------------------------
+Source MAC      : 02:00:00:00:00:11
+Destination MAC : 02:00:00:00:00:22
+Source IP       : 192.168.1.50
+Destination IP  : 203.0.113.10
+Protocol        : TCP
+Transport       : TCP
+Source Port     : 55000
+Destination Port: 443
+Sequence Number : 5000
+--------------------------------------
+--------------------------------------
+Source MAC      : 02:00:00:00:00:11
+Destination MAC : 02:00:00:00:00:22
+Source IP       : 192.168.1.50
+Destination IP  : 203.0.113.10
+Protocol        : TCP
+Transport       : TCP
+Source Port     : 55000
+Destination Port: 443
+Sequence Number : 5001
+--------------------------------------
+TLS INSPECTION
+Content Type : HANDSHAKE
+TLS Version  : TLS 1.0
+Record Length: 67
+SNI          : example.com
+--------------------------------------
+--------------------------------------
+Source MAC      : 02:00:00:00:00:31
+Destination MAC : 02:00:00:00:00:32
+Source IP       : 192.168.1.10
+Destination IP  : 8.8.8.8
+Protocol        : UDP
+Transport       : UDP
+Source Port     : 53001
+Destination Port: 53
+UDP Length      : 37
+UDP Checksum    : 0xd045
+UDP Payload Size: 29 bytes
+--------------------------------------
+DNS INSPECTION
+Transaction ID : 48879
+Message Type   : Query
+Query Name     : example.com
+Record Type    : A
+Questions      : 1
+Answers        : 0
+Response Code  : 0
+--------------------------------------
+--------------------------------------
+Source MAC      : 02:00:00:00:00:32
+Destination MAC : 02:00:00:00:00:31
+Source IP       : 8.8.8.8
+Destination IP  : 192.168.1.10
+Protocol        : UDP
+Transport       : UDP
+Source Port     : 53
+Destination Port: 53001
+UDP Length      : 53
+UDP Checksum    : 0x25ae
+UDP Payload Size: 45 bytes
+--------------------------------------
+DNS INSPECTION
+Transaction ID : 48879
+Message Type   : Response
+Query Name     : example.com
+Record Type    : A
+Questions      : 1
+Answers        : 1
+Response Code  : 0
+--------------------------------------
+--------------------------------------
+Source MAC      : 02:00:00:00:00:31
+Destination MAC : 02:00:00:00:00:32
+Source IP       : 192.168.1.60
+Destination IP  : 198.51.100.40
+Protocol        : UDP
+Transport       : UDP
+Source Port     : 60000
+Destination Port: 9999
+UDP Length      : 31
+UDP Checksum    : 0xa930
+UDP Payload Size: 23 bytes
+--------------------------------------
+--------------------------------------
+Source MAC      : 02:00:00:00:00:31
+Destination MAC : 02:00:00:00:00:32
+Source IP       : 192.168.1.61
+Destination IP  : 198.51.100.41
+Protocol        : UDP
+Transport       : UDP
+Source Port     : 60001
+Destination Port: 161
+UDP Length      : 26
+UDP Checksum    : 0xa580
+UDP Payload Size: 18 bytes
+--------------------------------------
+--------------------------------------
+Source MAC      : 02:00:00:00:00:70
+Destination MAC : 01:00:5E:00:00:FB
+Source IP       : 192.168.1.70
+Destination IP  : 224.0.0.251
+Protocol        : UDP
+Transport       : UDP
+Source Port     : 5353
+Destination Port: 5353
+UDP Length      : 42
+UDP Checksum    : 0x2af3
+UDP Payload Size: 34 bytes
+--------------------------------------
+DNS INSPECTION
+Transaction ID : 0
+Message Type   : Query
+Query Name     : _http._tcp.local
+Record Type    : PTR
+Questions      : 1
+Answers        : 0
+Response Code  : 0
+--------------------------------------
+--------------------------------------
+Source MAC      : 02:00:00:00:00:11
+Destination MAC : 02:00:00:00:00:22
+Source IP       : 192.168.1.80
+Destination IP  : 203.0.113.80
+Protocol        : TCP
+Transport       : TCP
+Source Port     : 56000
+Destination Port: 8080
+Sequence Number : 8000
+--------------------------------------
+
+=== REASSEMBLED HTTP INSPECTION ===
+Type    : REQUEST
+Method  : GET
+Path    : /wp-admin
+Host    : malware.example.com
+Version : HTTP/1.1
+Content Length: 0
+--------------------------------------
+!!! REASSEMBLY SECURITY ALERT !!!
+Rule     : Suspicious HTTP Path Rule
+Severity : MEDIUM
+Message  : Suspicious HTTP path detected: /wp-admin
+--------------------------------------
+--------------------------------------
+--------------------------------------
+Source MAC      : 02:00:00:00:00:11
+Destination MAC : 02:00:00:00:00:22
+Source IP       : 192.168.1.80
+Destination IP  : 203.0.113.80
+Protocol        : TCP
+Transport       : TCP
+Source Port     : 56000
+Destination Port: 8080
+Sequence Number : 8001
+--------------------------------------
+HTTP INSPECTION
+Type    : REQUEST
+Method  : GET
+Path    : /wp-admin
+Host    : malware.example.com
+Status  : null
+--------------------------------------
+!!! SECURITY ALERT !!!
+Rule     : Suspicious HTTP Path Rule
+Severity : MEDIUM
+Message  : Suspicious HTTP path detected: /wp-admin
+--------------------------------------
+--------------------------------------
+Source MAC      : 02:00:00:00:00:31
+Destination MAC : 02:00:00:00:00:32
+Source IP       : 192.168.1.90
+Destination IP  : 198.51.100.90
+Protocol        : UDP
+Transport       : UDP
+Source Port     : 62000
+Destination Port: 123
+UDP Length      : 56
+UDP Checksum    : 0x542
+UDP Payload Size: 48 bytes
+--------------------------------------
+--------------------------------------
+Source MAC      : 02:00:00:00:00:11
+Destination MAC : 02:00:00:00:00:22
+Source IP       : 192.168.1.91
+Destination IP  : 203.0.113.91
+Protocol        : TCP
+Transport       : TCP
+Source Port     : 57000
+Destination Port: 22
+Sequence Number : 100
+--------------------------------------
+
+========================================
+       DPI TRAFFIC ANALYSIS REPORT
+========================================
+Total Packets Processed : 22
+IPv4 Packets            : 22
+TCP Packets             : 16
+UDP Packets             : 6
+Unsupported Packets     : 0
+Total Captured Bytes    : 1810
+Total TCP Flows         : 7
+========================================
+
+TOP TCP FLOWS
+========================================
+1. 192.168.1.10:51514 <-> 93.184.216.34:80 (TCP)
+   Application : HTTP
+   Packets     : 4
+   Bytes       : 393
+   Duration    : 3 seconds
+
+2. 192.168.1.20:51516 <-> 93.184.216.34:80 (TCP)
+   Application : HTTP
+   Packets     : 3
+   Bytes       : 297
+   Duration    : 2 seconds
+
+3. 192.168.1.50:55000 <-> 203.0.113.10:443 (TCP)
+   Application : HTTPS
+   Packets     : 2
+   Bytes       : 180
+   Duration    : 1 seconds
+
+4. 192.168.1.80:56000 <-> 203.0.113.80:8080 (TCP)
+   Application : UNKNOWN
+   Packets     : 2
+   Bytes       : 180
+   Duration    : 1 seconds
+
+5. 192.168.1.30:53000 <-> 198.51.100.20:4444 (TCP)
+   Application : UNKNOWN
+   Packets     : 2
+   Bytes       : 135
+   Duration    : 1 seconds
+
+6. 192.168.1.40:54000 <-> 198.51.100.30:23 (TCP)
+   Application : UNKNOWN
+   Packets     : 2
+   Bytes       : 122
+   Duration    : 1 seconds
+
+7. 192.168.1.91:57000 <-> 203.0.113.91:22 (TCP)
+   Application : SSH
+   Packets     : 1
+   Bytes       : 54
+   Duration    : 0 seconds
+

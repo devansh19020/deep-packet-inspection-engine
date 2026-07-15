@@ -1,8 +1,7 @@
 {
   "suspiciousDomains": [
     "malware-site.com",
-    "suspicious-site.com",
-    "example.com"
+    "suspicious-site.com"
   ],
   "suspiciousPorts": [
     4444,
