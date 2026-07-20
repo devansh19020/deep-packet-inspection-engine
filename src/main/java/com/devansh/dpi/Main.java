@@ -1,6 +1,7 @@
 package com.devansh.dpi;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
 
@@ -8,7 +9,6 @@ import com.devansh.dpi.config.DpiConfig;
 import com.devansh.dpi.config.RuleConfigLoader;
 import com.devansh.dpi.inspection.InspectionResult;
 import com.devansh.dpi.inspection.PacketInspector;
-import com.devansh.dpi.model.DNSInfo;
 import com.devansh.dpi.model.HttpInfo;
 import com.devansh.dpi.model.RawPacket;
 import com.devansh.dpi.model.TCPStreamData;
@@ -25,12 +25,32 @@ import com.devansh.dpi.tracker.FlowKey;
 import com.devansh.dpi.tracker.FlowTracker;
 import com.devansh.dpi.tracker.TCPApplicationBuffer;
 import com.devansh.dpi.tracker.TCPStreamReassembler;
+import com.devansh.dpi.util.ApplicationLayerPrinter;
+import com.devansh.dpi.util.ConsoleFileTee;
 import com.devansh.dpi.util.PacketPrinter;
 import com.devansh.dpi.util.ReportPrinter;
 
 public class Main {
 
-    public static void main(String[] args) {
+        public static void main(String[] args) {
+                try (ConsoleFileTee output = new ConsoleFileTee(
+                        Path.of("reports", "dpi-report.log"))) {
+
+                System.out.println("DPI ENGINE RUN REPORT");
+                System.out.println("=====================");
+                System.out.println();
+
+                runDpi(args);
+
+                } catch (IOException e) {
+                System.err.println(
+                        "Could not create or write the DPI report: "
+                                + e.getMessage()
+                );
+                }
+        }
+
+    public static void runDpi(String[] args) {
 
         PacketParser parser =
                 new PacketParser();
@@ -59,17 +79,14 @@ public class Main {
         TCPApplicationBuffer applicationBuffer =
                 new TCPApplicationBuffer();
 
+        ApplicationLayerPrinter applicationLayerPrinter =
+                new ApplicationLayerPrinter();
+
         DpiConfig config;
 
-        /*
-         * Create Rule Engine
-         */
         RuleEngine ruleEngine =
                 new RuleEngine();
 
-        /*
-         * Register security rules
-         */
         try {
         config = configLoader.load("rules.json");
 
@@ -108,52 +125,29 @@ public class Main {
 
         try (PcapReader reader = new PcapReader()) {
 
-            reader.open("captures/sample2.pcap");
+            reader.open("captures/sample.pcap");
 
             RawPacket rawPacket;
 
             while ((rawPacket =
                     reader.readNextPacket()) != null) {
 
-                /*
-                 * Layer 1:
-                 * Parse network protocols
-                 */
                 ParsedPacket packet =
                         parser.parse(rawPacket);
 
-                /*
-                 * Layer 2:
-                 * Inspect application protocols
-                 */
                 InspectionResult result =
                         inspector.inspect(packet);
 
-                // Layer 2.5: TCP stream reassembly and stream-aware HTTP inspection
 
                 List<TCPStreamData> streamChunks =
                         streamReassembler.process(packet);
 
                 for (TCPStreamData chunk : streamChunks) {
 
-                        List<HttpInfo> streamRequests = applicationBuffer.process(chunk);
+                        List<HttpInfo> streamRequests =
+                                applicationBuffer.process(chunk);
 
                         for (HttpInfo streamHttp : streamRequests) {
-                                System.out.println();
-                                System.out.println("=== REASSEMBLED HTTP INSPECTION ===");
-
-                                System.out.println("Method  : " + streamHttp.getMethod());
-                                System.out.println("Path    : " + streamHttp.getPath());
-                                System.out.println("Host    : " + streamHttp.getHost());
-                                System.out.println("Version : " + streamHttp.getVersion());
-
-                                System.out.println("Content Length: "
-                                        + streamHttp.getContentLength());
-
-                                if (streamHttp.getBody() != null
-                                        && !streamHttp.getBody().isEmpty()) {
-                                System.out.println("Body    : " + streamHttp.getBody());
-                                }
 
                                 InspectionResult streamResult =
                                         new InspectionResult(
@@ -166,14 +160,10 @@ public class Main {
                                 List<SecurityAlert> streamAlerts =
                                         ruleEngine.evaluate(streamResult);
 
-                                for (SecurityAlert alert : streamAlerts) {
-                                        System.out.println("!!! REASSEMBLY SECURITY ALERT !!!");
-                                        System.out.println("Rule     : " + alert.getRuleName());
-                                        System.out.println("Severity : " + alert.getSeverity());
-                                        System.out.println("Message  : " + alert.getMessage());
-                                }
-
-                                System.out.println("--------------------------------------");
+                                applicationLayerPrinter.printReassembledHttp(
+                                        streamResult,
+                                        streamAlerts
+                                );
                         }
                 }
 
@@ -181,169 +171,21 @@ public class Main {
                         applicationBuffer.removeFlow(closedFlow);
                 }
 
-                /*
-                 * Layer 3:
-                 * Update traffic analysis
-                 */
+
                 statistics.process(packet);
 
                 flowTracker.process(packet);
 
-                /*
-                 * Print packet details
-                 */
+ 
                 packetPrinter.print(packet);
 
-                /*
-                 * Print HTTP inspection
-                 */
-                if (result.hasHttp()) {
-
-                    System.out.println(
-                            "HTTP INSPECTION"
-                    );
-
-                    System.out.println(
-                            "Type    : " +
-                                    (result.getHttpInfo().isRequest()
-                                            ? "REQUEST"
-                                            : "RESPONSE")
-                    );
-
-                    System.out.println(
-                            "Method  : " +
-                                    result.getHttpInfo().getMethod()
-                    );
-
-                    System.out.println(
-                            "Path    : " +
-                                    result.getHttpInfo().getPath()
-                    );
-
-                    System.out.println(
-                            "Host    : " +
-                                    result.getHttpInfo().getHost()
-                    );
-
-                    System.out.println(
-                            "Status  : " +
-                                    result.getHttpInfo().getStatusCode()
-                    );
-
-                    System.out.println(
-                            "--------------------------------------"
-                    );
-                }
-
-                /*
-                 * Print TLS inspection
-                 */
-                if (result.hasTls()) {
-
-                    System.out.println(
-                            "TLS INSPECTION"
-                    );
-
-                    System.out.println(
-                            "Content Type : " +
-                                    result.getTlsInfo()
-                                            .getContentType()
-                    );
-
-                    System.out.println(
-                            "TLS Version  : " +
-                                    result.getTlsInfo()
-                                            .getVersion()
-                    );
-
-                    System.out.println(
-                            "Record Length: " +
-                                    result.getTlsInfo()
-                                            .getRecordLength()
-                    );
-
-                    if (result.getTlsInfo()
-                            .hasServerName()) {
-
-                        System.out.println(
-                                "SNI          : " +
-                                        result.getTlsInfo()
-                                                .getServerName()
-                        );
-                    }
-
-                    System.out.println(
-                            "--------------------------------------"
-                    );
-                }
-
-                if (result.hasDns()) {
-
-                DNSInfo dns = result.getDnsInfo();
-
-                System.out.println("DNS Inspection");
-                System.out.println("  Transaction ID : " +
-                        dns.getTransactionId());
-
-                System.out.println("  Message Type   : " +
-                        (dns.isResponse() ? "Response" : "Query"));
-
-                System.out.println("  Query Name     : " +
-                        dns.getQueryName());
-
-                System.out.println("  Record Type    : " +
-                        dns.getRecordType());
-
-                System.out.println("  Questions      : " +
-                        dns.getQuestionCount());
-
-                System.out.println("  Answers        : " +
-                        dns.getAnswerCount());
-
-                System.out.println("  Response Code  : " +
-                        dns.getResponseCode());
-                }
-
-                /*
-                 * Layer 4:
-                 * Apply security rules
-                 */
                 List<SecurityAlert> alerts =
                         ruleEngine.evaluate(result);
 
-                /*
-                 * Print generated alerts
-                 */
-                for (SecurityAlert alert : alerts) {
-
-                    System.out.println(
-                            "!!! SECURITY ALERT !!!"
-                    );
-
-                    System.out.println(
-                            "Rule     : " +
-                                    alert.getRuleName()
-                    );
-
-                    System.out.println(
-                            "Severity : " +
-                                    alert.getSeverity()
-                    );
-
-                    System.out.println(
-                            "Message  : " +
-                                    alert.getMessage()
-                    );
-
-                    System.out.println(
-                            "--------------------------------------"
-                    );
-                }
+                applicationLayerPrinter.printInspection(result, alerts);
+                
             }
 
-            /*
-             * Final traffic report
-             */
             reportPrinter.printReport(
                     statistics,
                     flowTracker
