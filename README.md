@@ -8,83 +8,180 @@ A Java-based Deep Packet Inspection (DPI) and Network Traffic Analysis Engine th
 
 - Reads packets directly from PCAP files
 - Parses PCAP global and packet headers
-- Parses Ethernet frames
+- Parses Ethernet frames and extracts MAC addresses and EtherType
 - Parses IPv4 packets with variable header lengths
 - Parses TCP headers and extracts TCP payloads
+- Parses UDP headers and extracts UDP datagrams
 - Tracks bidirectional TCP flows
-- Generates traffic statistics
+- Reassembles TCP payload streams using sequence numbers
+- Buffers and reconstructs HTTP messages across multiple TCP segments
+- Supports multiple HTTP requests within a single TCP flow
+- Generates traffic statistics and flow analysis reports
+- Classifies supported network traffic using a protocol classifier
 - Detects and parses HTTP traffic
 - Extracts HTTP request metadata:
   - Method
   - Path
   - HTTP Version
   - Host
-- Detects TLS records
-- Parses TLS ClientHello messages
-- Extracts TLS Server Name Indication (SNI)
-- Supports extensible rule-based inspection
+  - Content-Length
+  - Request body, when available
+- Detects TLS records and parses TLS ClientHello messages
+- Extracts TLS metadata, including Server Name Indication (SNI), when available
+- Parses DNS queries and responses to extract:
+  - Transaction ID
+  - Query name
+  - Record type
+  - Question and answer counts
+  - Response code
+- Supports extensible rule-based security inspection
+- Loads configurable security rules from `rules.json`
 - Generates security alerts for:
   - Suspicious domains
   - Suspicious destination ports
   - Suspicious HTTP paths
+- Prints packet details, application-layer inspection results, and security alerts
+- Generates a final traffic analysis report
+- Saves console output to `reports/dpi-report.log` while continuing to display it in the console
 
 ---
 
 # Architecture
 
 ```text
-                    PCAP FILE
-                        |
-                        v
-                   PcapReader
-                        |
-                        v
-                    RawPacket
-                        |
-                        v
-                  PacketParser
-                        |
-          +-------------+-------------+
-          |             |             |
-          v             v             v
-   EthernetParser    IPv4Parser    TCPParser
-          |             |             |
-          +-------------+-------------+
-                        |
-                        v
-                  ParsedPacket
-                        |
-          +-------------+-------------+
-          |             |             |
-          v             v             v
- TrafficStatistics   FlowTracker  PacketInspector
-                                      |
-                              +-------+-------+
-                              |               |
-                              v               v
-                         HTTPParser       TLSParser
-                              |               |
-                              v               v
-                           HttpInfo        TlsInfo
-                                              |
-                                             SNI
-                              +-------+-------+
-                                      |
-                                      v
-                              InspectionResult
-                                      |
-                                      v
-                                 RuleEngine
-                                      |
-                    +-----------------+-----------------+
-                    |                 |                 |
-                    v                 v                 v
-           SuspiciousDomainRule SuspiciousPortRule SuspiciousHttpPathRule
-                    |                 |                 |
-                    +-----------------+-----------------+
-                                      |
-                                      v
-                                SecurityAlert
+
+                         PCAP FILE
+                             |
+                             v
+                         PcapReader
+                             |
+                             v
+                          RawPacket
+                             |
+                             v
+                        PacketParser
+                             |
+             +---------------+---------------+
+             |               |               |
+             v               v               v
+       EthernetParser    IPv4Parser      Other Parsers
+                             |
+                             v
+                        ParsedPacket
+                             |
+           +-----------------+------------------+
+           |                 |                  |
+           v                 v                  v
+    TrafficStatistics   FlowTracker      PacketInspector
+                                                |
+                                   +------------+------------+
+                                   |            |            |
+                                   v            v            v
+                               HTTPParser   TLSParser    DNSParser
+                                   |            |            |
+                                   v            v            v
+                                HttpInfo     TlsInfo      DNSInfo
+                                                |
+                                                v
+                                               SNI
+                                   +------------+------------+
+                                                |
+                                                v
+                                        InspectionResult
+                                                |
+                                                v
+                                           RuleEngine
+                                                |
+                         +----------------------+----------------------+
+                         |                      |                      |
+                         v                      v                      v
+                SuspiciousDomainRule   SuspiciousPortRule   SuspiciousHttpPathRule
+                         |                      |                      |
+                         +----------------------+----------------------+
+                                                |
+                                                v
+                                          SecurityAlert
+
+
+                  TCP STREAM REASSEMBLY PIPELINE
+                  ==============================
+
+                         ParsedPacket
+                              |
+                              v
+                     TCPStreamReassembler
+                              |
+                 +------------+------------+
+                 |                         |
+                 v                         v
+          TCP sequence tracking      Out-of-order buffering
+                 |                         |
+                 +------------+------------+
+                              |
+                              v
+                         TCPStreamData
+                              |
+                              v
+                      TCPApplicationBuffer
+                              |
+                 +------------+------------+
+                 |                         |
+                 v                         v
+         HTTP header buffering      HTTP body buffering
+                 |                         |
+                 +------------+------------+
+                              |
+                              v
+                   Complete HTTP Messages
+                              |
+                              v
+                           HttpInfo
+                              |
+                              v
+                       InspectionResult
+                              |
+                              v
+                          RuleEngine
+                              |
+                              v
+                        SecurityAlert
+
+
+                       OUTPUT / REPORTING
+                       ==================
+
+       ParsedPacket                    InspectionResult
+            |                                |
+            v                                v
+       PacketPrinter              ApplicationLayerPrinter
+            |                     - HTTP inspection
+            |                     - TLS / SNI inspection
+            |                     - DNS inspection
+            |                     - Reassembled HTTP
+            |                     - Security alerts
+            |                                |
+            +---------------+----------------+
+                            |
+                            v
+                      Console Output
+                            |
+                            v
+                      ConsoleFileTee
+                            |
+                            v
+                    reports/dpi-report.log
+
+
+       TrafficStatistics + FlowTracker
+                    |
+                    v
+               ReportPrinter
+                    |
+                    v
+          Final Traffic Analysis Report
+                    |
+                    v
+              Console + Report File
 ```
 
 ---
@@ -98,11 +195,21 @@ src/main/java/com/devansh/dpi
 │
 ├── application
 │   ├── HTTPParser.java
-│   └── TLSParser.java
+│   ├── TLSParser.java
+│   └── DNSParser.java
+│
+├── classifier
+│   └── ProtocolClassifier.java
+│
+├── config
+│   ├── DpiConfig.java
+│   └── RuleConfigLoader.java
 │
 ├── enums
 │   ├── TransportProtocol.java
-│   └── TlsContentType.java
+│   ├── TlsContentType.java
+│   ├── EtherType.java
+│   └── ApplicationProtocol.java
 │
 ├── inspection
 │   ├── InspectionResult.java
@@ -115,14 +222,18 @@ src/main/java/com/devansh/dpi
 │   ├── EthernetFrame.java
 │   ├── IPv4Packet.java
 │   ├── TCPPacket.java
+│   ├── UDPPacket.java
 │   ├── HttpInfo.java
-│   └── TlsInfo.java
+│   ├── TlsInfo.java
+│   ├── DNSInfo.java
+│   └── TCPStreamData.java
 │
 ├── parser
 │   ├── PacketParser.java
 │   ├── EthernetParser.java
 │   ├── IPv4Parser.java
 │   ├── TCPParser.java
+│   ├── UDPParser.java
 │   └── ParsedPacket.java
 │
 ├── reader
@@ -141,912 +252,414 @@ src/main/java/com/devansh/dpi
 │
 ├── tracker
 │   ├── Flow.java
-│   └── FlowTracker.java
+│   ├── FlowKey.java
+│   ├── FlowTracker.java
+│   ├── TCPStreamReassembler.java
+│   └── TCPApplicationBuffer.java
 │
 └── util
     ├── ByteUtils.java
     ├── PacketPrinter.java
-    └── ReportPrinter.java
-```
-
----
-
-# How It Works
-
-The engine processes a PCAP file packet by packet.
-
-```text
-PCAP File
-    |
-    v
-Read raw packet bytes
-    |
-    v
-Parse Ethernet Header
-    |
-    v
-Parse IPv4 Header
-    |
-    v
-Parse TCP Header
-    |
-    v
-Extract TCP Payload
-    |
-    +-----------------------+
-    |                       |
-    v                       v
-Inspect HTTP             Inspect TLS
-    |                       |
-    v                       v
-HTTP Metadata           TLS Metadata + SNI
-    |                       |
-    +-----------+-----------+
-                |
-                v
-         InspectionResult
-                |
-                v
-           Apply Rules
-                |
-                v
-         Generate Alerts
+    ├── ReportPrinter.java
+    ├── ApplicationLayerPrinter.java
+    └── ConsoleFileTee.java
 ```
 
 ---
 
 # Component Overview
 
-## PcapReader
+## `PcapReader`
 
-`PcapReader` is responsible for low-level PCAP file handling.
+`PcapReader` handles the binary PCAP file format. It reads the global header, validates the file's magic number, reads per-packet headers, and returns each packet as a `RawPacket`.
 
-It:
+Its responsibility is file I/O and PCAP record handling, not decoding Ethernet, IP, transport, or application protocols.
 
-- Opens the PCAP file
-- Reads the PCAP global header
-- Validates the PCAP magic number
-- Reads packet headers
-- Reads raw packet bytes
-- Creates `RawPacket` objects
+## `RawPacket`
 
-It does not understand Ethernet, IP, TCP, HTTP, or TLS. Its responsibility is limited to reading the binary PCAP format.
+`RawPacket` represents a captured packet as raw bytes together with its PCAP packet metadata. The protocol parsing layer uses these bytes to decode packet headers and payloads.
 
-```text
-PCAP File
-    |
-    v
-PcapReader
-    |
-    v
-RawPacket
-```
+## `PacketParser`
 
----
+`PacketParser` coordinates the lower-layer parsing pipeline. It invokes the Ethernet and IPv4 parsers and then parses supported transport headers, including TCP and UDP. The result is represented by `ParsedPacket`.
 
-## RawPacket
+The parser classes keep protocol-specific logic separate rather than placing all binary parsing in one large class.
 
-`RawPacket` represents a packet exactly as it is read from the PCAP file.
+## Protocol parsers
 
-Conceptually:
+### `EthernetParser`
 
-```text
-RawPacket
-├── PcapPacketHeader
-└── byte[] data
-```
+Extracts Ethernet frame metadata, including source and destination MAC addresses and EtherType.
 
-The raw bytes are later passed to protocol parsers for decoding.
+### `IPv4Parser`
+
+Extracts IPv4 metadata, including source and destination addresses, header length, TTL, and the encapsulated transport protocol. The IPv4 IHL field is used to determine the IPv4 header length.
+
+### `TCPParser`
+
+Extracts TCP metadata such as source and destination ports, sequence number, acknowledgement number, flags, header length, and payload offset.
+
+### `UDPParser`
+
+Parses UDP source and destination ports, datagram length, and payload boundaries. UDP packets can be inspected independently of TCP stream reassembly.
+
+## `ParsedPacket`
+
+`ParsedPacket` is the common representation used by downstream components. It exposes parsed network and transport metadata so that inspection, tracking, statistics, and printing components do not need to repeat the lower-level parsing process.
 
 ---
+# Application-Layer Inspection
 
-## PacketParser
+## `PacketInspector`
 
-`PacketParser` coordinates the network protocol parsing process.
+`PacketInspector` coordinates application-protocol inspection for a parsed packet. It delegates protocol-specific parsing to the relevant application parser and packages any detected metadata into an `InspectionResult`.
 
-```text
-RawPacket
-    |
-    v
-PacketParser
-    |
-    +--> EthernetParser
-    |
-    +--> IPv4Parser
-    |
-    +--> TCPParser
-    |
-    v
-ParsedPacket
-```
+The project includes HTTP, TLS metadata, and DNS parsing. The exact information available depends on the protocol, packet contents, and whether enough data is present in the captured packet or reconstructed stream.
 
-Each protocol has its own dedicated parser.
+## HTTP inspection
 
-This keeps the design modular and avoids putting all parsing logic inside one large class.
+`HTTPParser` recognizes supported HTTP request and response data and extracts metadata such as:
 
----
+- Request method
+- Request path
+- HTTP version
+- Host header
+- Response status code, when present
+- Content-Length and body information where available
 
-# Protocol Parsing
+For example, a request such as:
 
-## EthernetParser
-
-The Ethernet parser extracts:
-
-- Destination MAC Address
-- Source MAC Address
-- EtherType
-
-The EtherType identifies the protocol encapsulated inside the Ethernet frame.
-
----
-
-## IPv4Parser
-
-The IPv4 parser extracts:
-
-- Source IP Address
-- Destination IP Address
-- Transport Protocol
-- TTL
-- Header Length
-
-The parser supports variable IPv4 header lengths using the Internet Header Length (IHL) field.
-
----
-
-## TCPParser
-
-The TCP parser extracts:
-
-- Source Port
-- Destination Port
-- Sequence Number
-- Acknowledgement Number
-- TCP Header Length
-- TCP Flags
-- Payload Offset
-
-The payload offset identifies where application-layer data begins.
-
-```text
-Ethernet Header
-       |
-       v
-IPv4 Header
-       |
-       v
-TCP Header
-       |
-       v
-TCP Payload
-```
-
----
-
-# ParsedPacket
-
-`ParsedPacket` acts as a unified representation of the parsed network packet.
-
-```text
-ParsedPacket
-├── RawPacket
-├── EthernetFrame
-├── IPv4Packet
-└── TCPPacket
-```
-
-It also provides convenience methods such as:
-
-```java
-packet.getSourceIp();
-packet.getDestinationIp();
-packet.getSourcePort();
-packet.getDestinationPort();
-packet.getPayload();
-```
-
-This allows other components to access parsed packet information without directly navigating through multiple protocol objects.
-
----
-
-# PacketInspector
-
-`PacketInspector` performs application-layer inspection.
-
-After TCP parsing, the application extracts the TCP payload and attempts to identify supported application protocols.
-
-```text
-ParsedPacket
-      |
-      v
-Has TCP?
-      |
-      v
-Get TCP Payload
-      |
-      +-------------------+
-      |                   |
-      v                   v
-  HTTPParser          TLSParser
-      |                   |
-      v                   v
-  HttpInfo             TlsInfo
-      |                   |
-      +---------+---------+
-                |
-                v
-        InspectionResult
-```
-
----
-
-# HTTP Inspection
-
-The HTTP parser identifies HTTP requests and responses from TCP payloads.
-
-For an HTTP request such as:
-
-```text
+```http
 GET /login HTTP/1.1
 Host: example.com
 ```
 
-the engine extracts:
+can produce metadata similar to:
 
 ```text
+Type    : REQUEST
 Method  : GET
 Path    : /login
-Version : HTTP/1.1
 Host    : example.com
+Version : HTTP/1.1
 ```
 
-The parsed information is stored in `HttpInfo`.
+The HTTP parser is designed to avoid treating an incomplete header as a complete HTTP message. TCP stream reassembly and application buffering provide the additional context needed when a message is split across captured TCP segments.
 
-Conceptually:
+## TLS inspection and SNI extraction
 
-```text
-HttpInfo
-├── Request / Response
-├── Method
-├── Path
-├── HTTP Version
-├── Host
-└── Status Code
-```
+`TLSParser` performs metadata-based inspection of supported TLS records. When a suitable ClientHello is available, it can extract information such as:
 
-This allows the engine to inspect unencrypted HTTP application traffic.
-
----
-
-# TLS Inspection and SNI Extraction
-
-The engine performs metadata-based TLS inspection.
-
-It parses the TLS ClientHello structure to extract information from the handshake.
-
-```text
-TLS Record
-    |
-    +-- Record Header
-    |
-    +-- Handshake Message
-            |
-            +-- ClientHello
-                    |
-                    +-- Extensions
-                            |
-                            +-- Server Name Extension
-                                    |
-                                    +-- SNI
-```
-
-For example:
-
-```text
-SNI: example.com
-```
-
-The extracted TLS information can include:
-
-- TLS Content Type
-- TLS Version
-- Record Length
-- Server Name Indication (SNI)
-
-The engine does not decrypt HTTPS traffic.
-
-Instead, it inspects TLS handshake metadata when available.
-
----
-
-# InspectionResult
-
-`InspectionResult` combines the results of network and application-layer inspection.
-
-```text
-InspectionResult
-├── ParsedPacket
-├── HttpInfo
-└── TlsInfo
-```
-
-It acts as a bridge between packet inspection and the security rule engine.
-
-Rules receive an already prepared `InspectionResult` instead of performing protocol parsing themselves.
-
----
-
-# Flow Tracking
-
-The engine groups packets into bidirectional TCP flows.
+- TLS content type
+- TLS version information from the record
+- Record length
+- Server Name Indication (SNI), when present and parseable
 
 Example:
 
 ```text
-192.168.1.10:50000
-        |
-        | TCP Flow
-        |
-142.250.183.46:443
-```
-
-Packets travelling in both directions:
-
-```text
-A -> B
-B -> A
-```
-
-are associated with the same logical communication flow.
-
-This allows the application to analyze communication sessions instead of treating every packet as completely independent.
-
----
-
-# Traffic Statistics
-
-`TrafficStatistics` maintains aggregate traffic information.
-
-Examples include:
-
-- Total packets processed
-- Total TCP packets
-- Total bytes processed
-- Protocol-level statistics
-
-This provides a high-level view of the analyzed network capture.
-
----
-
-# Rule Engine
-
-The security detection system is based on an extensible rule engine.
-
-```text
-InspectionResult
-       |
-       v
-   RuleEngine
-       |
-       +--> SuspiciousDomainRule
-       |
-       +--> SuspiciousPortRule
-       |
-       +--> SuspiciousHttpPathRule
-       |
-       v
-SecurityAlert
-```
-
-Every detection rule implements the `Rule` interface.
-
-```java
-public interface Rule {
-
-    SecurityAlert evaluate(
-            InspectionResult result
-    );
-}
-```
-
-New rules can be added by implementing this interface and registering the rule with the `RuleEngine`.
-
-```text
-Create New Rule
-       |
-       v
-Implement Rule Interface
-       |
-       v
-Register Rule with RuleEngine
-```
-
-This follows an interface-based extensible design.
-
----
-
-## SuspiciousDomainRule
-
-Checks domains obtained from:
-
-- HTTP `Host`
-- TLS `SNI`
-
-Example:
-
-```text
-Suspicious domain detected: example.com
-```
-
-If the domain matches a configured suspicious domain, a security alert is generated.
-
----
-
-## SuspiciousPortRule
-
-Checks the TCP destination port against a configured set of ports.
-
-Example:
-
-```text
-Destination Port: 4444
-```
-
-Possible alert:
-
-```text
-Connection detected to suspicious port: 4444
-```
-
-This is intended as an MVP detection rule. A port alone does not prove malicious activity, but it can be useful as one signal for further analysis.
-
----
-
-## SuspiciousHttpPathRule
-
-Checks HTTP request paths against configured paths.
-
-For example:
-
-```text
-GET /admin HTTP/1.1
-```
-
-Possible alert:
-
-```text
-Suspicious HTTP path detected: /admin
-```
-
-The rule only applies to HTTP requests.
-
----
-
-# SecurityAlert
-
-When a rule detects a match, it generates a `SecurityAlert`.
-
-An alert contains information such as:
-
-- Rule Name
-- Severity
-- Detection Message
-
-Example:
-
-```text
-!!! SECURITY ALERT !!!
-Rule     : Suspicious Domain Rule
-Severity : HIGH
-Message  : Suspicious domain detected: example.com
---------------------------------------
-```
-
----
-
-# Complete Processing Pipeline
-
-For every packet, the application performs the following steps:
-
-```text
-1. PcapReader reads packet bytes
-              |
-              v
-2. RawPacket is created
-              |
-              v
-3. PacketParser parses Ethernet
-              |
-              v
-4. PacketParser parses IPv4
-              |
-              v
-5. PacketParser parses TCP
-              |
-              v
-6. ParsedPacket is created
-              |
-              v
-7. TrafficStatistics is updated
-              |
-              v
-8. FlowTracker identifies the TCP flow
-              |
-              v
-9. PacketInspector extracts TCP payload
-              |
-              v
-10. HTTP/TLS parser performs application inspection
-              |
-              v
-11. InspectionResult is created
-              |
-              v
-12. RuleEngine evaluates all registered rules
-              |
-              v
-13. Security alerts are generated for matching rules
-              |
-              v
-14. Final traffic report is printed
-```
-
----
-
-# Complete System Architecture
-
-```text
-                    +------------------+
-                    |    PCAP FILE     |
-                    +--------+---------+
-                             |
-                             v
-                    +------------------+
-                    |    PcapReader    |
-                    |  Binary Reading  |
-                    +--------+---------+
-                             |
-                             v
-                        RawPacket
-                             |
-                             v
-                    +------------------+
-                    |   PacketParser   |
-                    +--------+---------+
-                             |
-              +--------------+--------------+
-              |              |              |
-              v              v              v
-       EthernetParser     IPv4Parser     TCPParser
-              |              |              |
-              +--------------+--------------+
-                             |
-                             v
-                        ParsedPacket
-                             |
-               +-------------+-------------+
-               |             |             |
-               v             v             v
-        TrafficStats     FlowTracker   PacketInspector
-                                           |
-                                  +--------+--------+
-                                  |                 |
-                                  v                 v
-                             HTTPParser         TLSParser
-                                  |                 |
-                                  v                 v
-                               HttpInfo          TlsInfo
-                                                    |
-                                                   SNI
-                                  +--------+--------+
-                                           |
-                                           v
-                                   InspectionResult
-                                           |
-                                           v
-                                      RuleEngine
-                                           |
-                    +----------------------+----------------------+
-                    |                      |                      |
-                    v                      v                      v
-             Domain Rule               Port Rule             HTTP Path Rule
-                    |                      |                      |
-                    +----------------------+----------------------+
-                                           |
-                                           v
-                                     SecurityAlert
-                                           |
-                                           v
-                                      Final Report
-```
-
----
-
-# Example Output
-
-```text
---------------------------------------
-Source MAC      : 66:77:88:99:AA:BB
-Destination MAC : 00:11:22:33:44:55
-Source IP       : 192.168.1.10
-Destination IP  : 142.250.183.46
-Protocol        : TCP
-Source Port     : 50000
-Destination Port: 443
-Sequence Number : 1000
---------------------------------------
-
 TLS INSPECTION
 Content Type : HANDSHAKE
 TLS Version  : TLS 1.2
-Record Length: 67
 SNI          : example.com
---------------------------------------
+```
 
+This is metadata inspection, not TLS decryption. The engine does not decrypt HTTPS application data.
+
+## DNS inspection
+
+`DNSParser` parses supported DNS message metadata from UDP traffic, including:
+
+- Transaction ID
+- Query or response indicator
+- Query name
+- Question record type
+- Question count
+- Answer count
+- Response code
+
+The current parser focuses on DNS header and question metadata. Do not interpret the displayed answer count as proof that all DNS answer records are decoded and presented individually.
+
+---
+# TCP Stream Reassembly
+
+TCP is a byte stream, but a PCAP capture contains individual packets. An application message may be split across multiple TCP segments, and one segment may contain data from more than one application message. For this reason, the project includes a stream-aware processing path.
+
+## `TCPStreamReassembler`
+
+The reassembler tracks TCP payload sequence positions per flow direction. It joins contiguous payload data and holds segments that arrive ahead of the next expected sequence position until the missing data becomes available. It also includes handling for connection lifecycle events and bounds on tracked state.
+
+## `TCPStreamData`
+
+`TCPStreamData` represents a contiguous reconstructed piece of TCP payload data, associated with its flow and direction.
+
+## `TCPApplicationBuffer`
+
+`TCPApplicationBuffer` accumulates reconstructed TCP data until complete HTTP messages can be identified. It accounts for the end of the HTTP header and uses `Content-Length` when determining whether a message body has arrived. It can emit multiple HTTP messages from a single stream buffer and retain any trailing bytes for subsequent processing.
+
+This enables the engine to inspect scenarios such as:
+
+- HTTP headers split across TCP segments
+- HTTP request bodies split across TCP segments
+- Multiple HTTP requests sent over one TCP connection
+
+TCP stream reassembly is an MVP implementation. It should not be described as a fully RFC-compliant TCP stack; retransmissions, overlapping segments, sequence-number wraparound, missing capture data, and unusual connection teardown patterns can require additional handling and testing.
+
+---
+# `InspectionResult`
+
+`InspectionResult` combines a parsed packet with application-layer information detected for that packet or reconstructed HTTP message. It acts as the input to security rules, keeping rule logic separate from protocol parsing.
+
+For reconstructed HTTP, the engine creates an inspection result from the reconstructed `HttpInfo` and evaluates the same rule engine against it.
+
+---
+# Flow Tracking and Traffic Statistics
+
+## `FlowTracker` and `FlowKey`
+
+`FlowTracker` groups packets into logical TCP flows. `FlowKey` provides a normalized identity for a connection so traffic in opposite directions can be associated with the same flow. `Flow` stores flow-level information used by the traffic report.
+
+Flow tracking enables the report to summarize communication sessions rather than treating each packet as an unrelated event.
+
+## `TrafficStatistics`
+
+`TrafficStatistics` maintains aggregate capture statistics, including packet counts, IPv4/TCP/UDP counts, captured bytes, and other counters supported by the implementation.
+
+## `ProtocolClassifier`
+
+`ProtocolClassifier` is a separate component for classifying supported traffic according to the implemented classification logic. Its presence does not imply that every application protocol or encrypted application payload can be identified.
+
+---
+# Security Rule Engine
+
+The `RuleEngine` evaluates configured rules against `InspectionResult` objects. Each detection rule implements the `Rule` interface and returns a `SecurityAlert` when its conditions match.
+
+```text
+InspectionResult
+      |
+      v
+  RuleEngine
+      |
+      +--> SuspiciousDomainRule
+      |
+      +--> SuspiciousPortRule
+      |
+      +--> SuspiciousHttpPathRule
+      |
+      v
+ SecurityAlert
+```
+
+## `SuspiciousDomainRule`
+
+Checks domains available from supported application metadata, including HTTP Host values and TLS SNI when present, against the configured suspicious-domain list.
+
+## `SuspiciousPortRule`
+
+Checks destination ports against the configured suspicious-port list. A port match is a detection signal, not proof that a connection is malicious.
+
+## `SuspiciousHttpPathRule`
+
+Checks parsed HTTP request paths against the configured suspicious-path list. It applies when an HTTP request path is available.
+
+## JSON rule configuration
+
+`DpiConfig` represents the rule configuration, and `RuleConfigLoader` loads it from `rules.json`. This keeps suspicious-domain, suspicious-port, and suspicious-HTTP-path lists outside the rule implementation, allowing the configuration to be adjusted without editing the Java rule classes.
+
+If the configuration cannot be loaded, the application reports the error rather than silently claiming that the configured rules were loaded.
+
+## `SecurityAlert`
+
+A `SecurityAlert` represents a rule match and includes information such as the rule name, severity, and detection message.
+
+Example:
+
+```text
 !!! SECURITY ALERT !!!
 Rule     : Suspicious Domain Rule
 Severity : HIGH
 Message  : Suspicious domain detected: example.com
 --------------------------------------
-
-==============================
-      FLOW ANALYSIS SUMMARY
-==============================
-Total TCP Flows: 2
 ```
 
----
+The actual alerts depend on the capture contents and the values in `rules.json`.
 
-# Technologies Used
+---
+# Printing and Report Output
+
+## `PacketPrinter`
+
+Prints packet-level information such as MAC addresses, IP addresses, transport protocol, ports, and TCP sequence numbers where applicable.
+
+## `ApplicationLayerPrinter`
+
+Keeps application-layer output out of `Main.java`. It prints HTTP inspection, TLS metadata and SNI, DNS metadata, reconstructed HTTP messages, and related security alerts.
+
+## `ReportPrinter`
+
+Prints the final traffic analysis summary, including aggregate statistics and flow summaries available from `TrafficStatistics` and `FlowTracker`.
+
+## `ConsoleFileTee`
+
+Mirrors standard console output and error output to a report file while preserving console output. The configured report path is:
+
+```text
+reports/dpi-report.log
+```
+
+The output file is generated at runtime. Its contents reflect the messages actually printed during that execution; it is not a PCAP file or a separate structured database of packet data.
+
+---
+# Complete Processing Pipeline
+
+For each captured packet, the application broadly performs the following work:
+
+1. `PcapReader` reads the next PCAP record and creates a `RawPacket`.
+2. `PacketParser` decodes supported Ethernet, IPv4, TCP, and UDP headers into a `ParsedPacket`.
+3. `PacketInspector` attempts supported HTTP, TLS, and DNS inspection and creates an `InspectionResult`.
+4. `TCPStreamReassembler` processes TCP payload data and emits contiguous stream chunks when available.
+5. `TCPApplicationBuffer` assembles complete HTTP messages from reconstructed stream data.
+6. `RuleEngine` evaluates security rules against packet-level inspection results and reconstructed HTTP messages.
+7. `TrafficStatistics` and `FlowTracker` update their counters and flow state.
+8. `PacketPrinter` and `ApplicationLayerPrinter` print packet and application-layer details.
+9. `ReportPrinter` prints the final traffic report.
+10. `ConsoleFileTee` mirrors printed output to `reports/dpi-report.log`.
+
+The exact call order is controlled by `Main.java`; the list above describes the major responsibilities rather than a guarantee that every component is invoked in this exact order for every packet.
+
+---
+# Example Output
+
+Output varies according to the PCAP capture and configured rules. A reconstructed HTTP request may look like:
+
+```text
+=== REASSEMBLED HTTP INSPECTION ===
+Type    : REQUEST
+Method  : GET
+Path    : /admin
+Host    : example.com
+Version : HTTP/1.1
+Content Length: 0
+!!! REASSEMBLY SECURITY ALERT !!!
+Rule     : Suspicious Domain Rule
+Severity : HIGH
+Message  : Suspicious domain detected: example.com
+!!! REASSEMBLY SECURITY ALERT !!!
+Rule     : Suspicious HTTP Path Rule
+Severity : MEDIUM
+Message  : Suspicious HTTP path detected: /admin
+--------------------------------------
+```
+
+The final report summarizes the packet and flow information collected during the run. Exact totals depend on the input capture.
+
+---
+# Running the Project
+
+## Requirements
 
 - Java 21
 - Maven
-- Java NIO
-- `FileChannel`
-- `ByteBuffer`
-- Object-Oriented Programming
-- Interface-based design
+- A PCAP file supported by the current reader and parser implementation
 
----
+## Build
 
-# Running the Project
-
-## 1. Clone the Repository
-
-```bash
-git clone <repository-url>
-cd deep-packet-inspection-engine
-```
-
-## 2. Build the Project
+From the Maven project root:
 
 ```bash
 mvn clean compile
 ```
 
-## 3. Add a PCAP File
+## Prepare a capture
 
-Create a `captures` directory in the project root:
+Place a PCAP file under `captures/` and ensure the path passed to `PcapReader.open(...)` in `Main.java` matches the file name. For example:
 
-```text
-deep-packet-inspection-engine
-├── captures
-│   └── sample.pcap
-├── src
-├── pom.xml
-└── README.md
+```java
+reader.open("captures/dpi_showcase_mixed_protocols.pcap");
 ```
 
-Place your PCAP file inside:
+## Configure rules
 
-```text
-captures/sample.pcap
-```
+Edit `rules.json` to configure suspicious domains, ports, and HTTP paths. Ensure the file is located where `RuleConfigLoader` expects it relative to the application's working directory.
 
-## 4. Run the Application
+## Run
 
-Run the `Main` class from your IDE.
-
-Alternatively, compile the project:
-
-```bash
-mvn clean compile
-```
-
-and run the application according to your Java/Maven configuration.
+Run `Main` from your IDE, or use the project's configured Maven execution method. After the run, inspect the console and `reports/dpi-report.log`.
 
 ---
-
-# Testing
-
-The project includes manual test classes for individual application-layer parsers.
-
-Test:
-
-```text
-HttpParserTest
-```
-
-to verify HTTP parsing.
-
-Test:
-
-```text
-TLSParserSniTest
-```
-
-to verify TLS parsing and SNI extraction.
-
-Run the main application after testing:
-
-```text
-Main
-```
-
-to verify the complete end-to-end pipeline.
-
----
-
 # Limitations
 
-This project is an MVP and currently has the following limitations:
+This is an offline PCAP analysis MVP. Its current design and implementation have the following boundaries:
 
-- Supports the implemented protocol path: Ethernet -> IPv4 -> TCP
-- Does not currently perform UDP application-layer inspection
-- Does not perform TCP stream reassembly
-- HTTP or TLS messages fragmented across multiple TCP packets may not be fully parsed
-- TLS inspection extracts metadata such as SNI when available
-- Does not decrypt encrypted HTTPS application data
-- Rule configurations are currently defined in code
-- Processing is focused on offline PCAP analysis
+- It processes supported PCAP records and protocol paths; it is not a general-purpose decoder for every network protocol.
+- IPv4 is the implemented network-layer path; IPv6 support is not established by the current project structure.
+- DNS parsing focuses on message/question metadata and does not imply complete decoding of all DNS resource records.
+- TLS inspection is metadata-based and does not decrypt HTTPS payloads.
+- TLS SNI may be absent, unavailable, or not parseable from a particular capture.
+- HTTP inspection works only when sufficient data is available. TCP stream reassembly and application buffering improve support for segmented HTTP messages but do not constitute a fully RFC-compliant TCP implementation.
+- Packet loss in the capture, missing segments, retransmissions, overlapping data, and unusual TCP sequence or connection-lifecycle cases may affect reconstructed messages.
+- Suspicious-port matches are heuristic indicators and do not prove malicious behavior.
+- Detection coverage depends on the configured lists in `rules.json`.
+- The engine analyzes saved captures; live capture integration is not part of the described workflow.
 
 ---
+# Potential Future Improvements
 
-# Future Improvements
+Possible next steps include:
 
-Potential future improvements include:
-
-- TCP stream reassembly
-- UDP parsing and inspection
-- DNS parsing
 - PCAPNG support
-- Configurable rules using JSON or YAML
-- CIDR and IP-based detection rules
-- Packet filtering
-- Severity scoring
-- Alert aggregation
-- Configurable suspicious domain feeds
-- Spring Boot REST API
-- Web dashboard for traffic visualization
-- Real-time packet capture integration
-- Database storage for alerts and traffic analysis
+- More robust TCP overlap, retransmission, and teardown handling
+- Broader DNS resource-record parsing
+- IPv6 support
+- Additional protocol parsers and classifiers
+- CIDR- and IP-based rules
+- Rule severity scoring and alert aggregation
+- Unit and integration tests with known-good PCAP fixtures
+- Structured JSON report output
+- Persistent storage for flows and alerts
+- A REST API and web dashboard
+- Live packet capture integration
 
 ---
-
 # Key Design Principles
 
-## Separation of Concerns
+## Separation of concerns
 
-Each component has a specific responsibility.
-
-For example:
-
-```text
-PcapReader        -> Reads PCAP files
-PacketParser      -> Coordinates protocol parsing
-TCPParser         -> Parses TCP headers
-PacketInspector   -> Performs application-layer inspection
-FlowTracker       -> Tracks network flows
-RuleEngine        -> Evaluates security rules
-```
-
----
+Each component owns a distinct responsibility: `PcapReader` handles file records, parser classes decode protocols, `PacketInspector` coordinates application inspection, tracker classes manage flows and stream state, the rule engine evaluates detections, and printer classes format output.
 
 ## Single Responsibility Principle
 
-Protocol parsing is separated into dedicated classes instead of creating one large parser.
+Protocol parsing is split into focused classes such as `EthernetParser`, `IPv4Parser`, `TCPParser`, `UDPParser`, `HTTPParser`, `TLSParser`, and `DNSParser`.
 
-```text
-EthernetParser
-IPv4Parser
-TCPParser
-```
+## Extensible rule design
 
-Each class focuses on one protocol layer.
+The `Rule` interface allows new detection rules to be added and registered with `RuleEngine` without embedding each detection condition into the engine itself.
 
----
+## Defensive binary parsing
 
-## Open/Closed Principle
+The implementation works with untrusted packet bytes and therefore needs boundary checks, header-length validation, payload bounds, and PCAP header validation to avoid interpreting incomplete or malformed data as valid protocol messages.
 
-New detection rules can be added without modifying the existing `RuleEngine`.
+## Stream-aware application inspection
 
-```text
-Existing RuleEngine
-        +
-New Rule Implementation
-        =
-New Detection Capability
-```
-
-For example, a future `SuspiciousIpRule` could implement the same `Rule` interface.
+TCP stream reconstruction is separated from HTTP message buffering. This makes the distinction explicit between transport-level byte ordering and application-level message framing.
 
 ---
-
-## Layered Protocol Parsing
-
-The project follows the natural hierarchy of network protocols:
-
-```text
-Ethernet
-    |
-    v
-IPv4
-    |
-    v
-TCP
-    |
-    v
-Application Payload
-    |
-    +--> HTTP
-    |
-    +--> TLS
-```
-
----
-
-## Defensive Binary Parsing
-
-The PCAP reader and protocol parsers work directly with binary data.
-
-The implementation uses techniques such as:
-
-- Length validation
-- Header size calculation
-- Unsigned byte conversion
-- Packet boundary checks
-- PCAP magic number validation
-
-This helps prevent invalid data from being incorrectly processed.
-
----
-
-# Interview Summary
-
-This project is a layered Deep Packet Inspection pipeline built in Java.
-
-`PcapReader` reads raw packets from a PCAP file using Java NIO. Dedicated protocol parsers then decode Ethernet, IPv4, and TCP headers into structured objects. The `PacketInspector` examines TCP payloads and identifies supported application protocols such as HTTP and TLS. For HTTP traffic, it extracts request metadata including the method, path, and host. For TLS traffic, it performs metadata-based inspection of ClientHello messages and extracts the Server Name Indication when available.
-
-The project also maintains aggregate traffic statistics and groups packets into bidirectional TCP flows. Finally, an extensible `RuleEngine` evaluates inspection results using independent detection rules for suspicious domains, destination ports, and HTTP paths, generating security alerts when configured conditions are matched.
-
-The architecture separates binary file reading, protocol parsing, application-layer inspection, traffic analysis, and security detection, making the system modular and easier to extend.
-
----
-
 # Key Learning Points
 
-This project demonstrates:
-
-- Binary data parsing in Java
-- PCAP file processing
-- Network protocol structure
-- Ethernet frame parsing
-- IPv4 header parsing
-- TCP header parsing
-- TCP payload extraction
-- HTTP request inspection
-- TLS ClientHello parsing
-- TLS SNI extraction
-- Network flow tracking
-- Traffic statistics
-- Interface-based architecture
-- Rule engine design
-- Object-Oriented Design Principles
-- Separation of concerns
-- Open/Closed Principle
-- Defensive programming
-- Java NIO with `FileChannel` and `ByteBuffer`
-
+- PCAP binary file processing
+- Ethernet, IPv4, TCP, and UDP parsing
+- Byte-level parsing and header-boundary validation
+- HTTP request metadata and body extraction
+- TLS ClientHello metadata and SNI extraction
+- DNS query and response metadata parsing
+- TCP flow identification and tracking
+- TCP stream reassembly and application buffering
+- Processing multiple HTTP messages on a stream
+- Extensible rule-engine design
+- JSON-based rule configuration
+- Traffic statistics and flow reporting
+- Console output mirroring to a report file
+- Object-oriented design and separation of concerns
 ---
 # Screenshots
 
